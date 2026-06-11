@@ -123,28 +123,88 @@ private:
     {
         auto r = getLocalBounds().toFloat();
 
-        g.fillAll(ModernTheme::panelDeep);
+        // transport bay: vertical light falloff + vignette + grain
+        ColourGradient bay(ModernTheme::panel.brighter(0.02f), r.getCentreX(), r.getY(),
+                           ModernTheme::panelDeep, r.getCentreX(), r.getBottom(), false);
+        g.setGradientFill(bay);
+        g.fillAll();
+
+        ColourGradient vignette(Colours::transparentBlack, r.getCentreX(), r.getCentreY(),
+                                Colours::black.withAlpha(0.45f), r.getX(), r.getY(), true);
+        vignette.addColour(0.62, Colours::transparentBlack);
+        g.setGradientFill(vignette);
+        g.fillRect(r);
+
+        ModernTheme::fillGrain(g, r, 0.5f);
 
         // The same rotation the filmstrip would show, derived from the frame
         // counter so transport/drag behavior is identical in both eras.
         const float angle = (float) currentFrame * MathConstants<float>::twoPi / (float) jmax(1, animationNumFrames);
 
-        const Point<float> leftHub(r.getWidth() * 0.26f, r.getHeight() * 0.47f);
-        const Point<float> rightHub(r.getWidth() * 0.74f, r.getHeight() * 0.47f);
+        const Point<float> leftHub(r.getWidth() * 0.26f, r.getHeight() * 0.46f);
+        const Point<float> rightHub(r.getWidth() * 0.74f, r.getHeight() * 0.46f);
         const float radius = r.getHeight() * 0.40f;
+        const float tapeY = leftHub.y + radius * 0.94f;
 
-        // tape path between the reels
-        g.setColour(ModernTheme::outline);
-        g.drawLine(leftHub.x, leftHub.y + radius * 0.92f, rightHub.x, rightHub.y + radius * 0.92f, 2.0f);
+        // tape path: dark band with a moving sheen, threaded under both reels
+        {
+            g.setColour(Colour(0xff060607));
+            g.fillRect(leftHub.x, tapeY - 2.5f, rightHub.x - leftHub.x, 5.0f);
+            g.setColour(Colours::white.withAlpha(0.10f));
+            g.drawLine(leftHub.x, tapeY - 2.5f, rightHub.x, tapeY - 2.5f, 0.8f);
+
+            // guide rollers
+            for (float gx : { leftHub.x + radius * 0.55f, rightHub.x - radius * 0.55f })
+            {
+                ColourGradient roller(Colour(0xff4a4a50), gx, tapeY - 7.0f, Colour(0xff19191b), gx, tapeY + 7.0f, false);
+                g.setGradientFill(roller);
+                g.fillEllipse(gx - 5.5f, tapeY - 5.5f, 11.0f, 11.0f);
+                g.setColour(Colours::black.withAlpha(0.6f));
+                g.drawEllipse(gx - 5.5f, tapeY - 5.5f, 11.0f, 11.0f, 1.0f);
+                g.setColour(Colours::white.withAlpha(0.25f));
+                g.fillEllipse(gx - 1.5f, tapeY - 1.5f, 3.0f, 3.0f);
+            }
+        }
+
+        // head block between the reels
+        {
+            juce::Rectangle<float> head(r.getCentreX() - 36.0f, tapeY - 26.0f, 72.0f, 30.0f);
+            g.setColour(Colours::black.withAlpha(0.5f));
+            g.fillRoundedRectangle(head.translated(0, 2.0f), 5.0f);
+            ColourGradient headFill(Colour(0xff37373c), head.getCentreX(), head.getY(),
+                                    Colour(0xff141416), head.getCentreX(), head.getBottom(), false);
+            g.setGradientFill(headFill);
+            g.fillRoundedRectangle(head, 5.0f);
+            g.setColour(Colours::white.withAlpha(0.10f));
+            g.drawLine(head.getX() + 4.0f, head.getY() + 1.0f, head.getRight() - 4.0f, head.getY() + 1.0f, 1.0f);
+
+            // the gap windows
+            g.setColour(Colour(0xff0a0a0b));
+            for (int i = 0; i < 3; ++i)
+                g.fillRoundedRectangle(head.getX() + 9.0f + 19.0f * (float) i, head.getY() + 8.0f, 14.0f, 14.0f, 2.0f);
+
+            ModernTheme::drawScrew(g, { head.getX() + 6.0f, head.getBottom() - 6.0f }, 2.2f, 0.9f);
+            ModernTheme::drawScrew(g, { head.getRight() - 6.0f, head.getBottom() - 6.0f }, 2.2f, 2.4f);
+        }
 
         ModernTheme::drawReel(g, leftHub, radius, angle);
         ModernTheme::drawReel(g, rightHub, radius, -angle);
 
-        g.setColour(ModernTheme::textDim);
-        g.setFont(ModernTheme::labelFont(10.0f));
+        // pink ember rising from the deck below — the machine is alive
+        ColourGradient ember(ModernTheme::accent.withAlpha(hovering ? 0.14f : 0.08f),
+                             r.getCentreX(), r.getBottom() + 30.0f,
+                             ModernTheme::accent.withAlpha(0.0f), r.getCentreX(), r.getBottom() - 90.0f, true);
+        g.setGradientFill(ember);
+        g.fillRect(r.withTop(r.getBottom() - 90.0f));
+
+        g.setColour(hovering ? ModernTheme::textPrimary.withAlpha(0.8f) : ModernTheme::textDim.withAlpha(0.55f));
+        g.setFont(ModernTheme::labelFont(9.5f));
         g.drawText("DRAG THE REELS TO LEAN ON THE TAPE",
-                   r.removeFromBottom(18.0f), Justification::centred, false);
+                   r.removeFromBottom(16.0f), Justification::centred, false);
     }
+
+    void mouseEnter(const MouseEvent&) override { hovering = true; repaint(); }
+    void mouseExit(const MouseEvent&) override  { hovering = false; repaint(); }
 
     void timerCallback() override
     {
@@ -168,6 +228,7 @@ private:
     }
 
     UIEra era = UIEra::heritage;
+    bool hovering = false;
 
     float resetThresh = 1.0f;
     float curIncrement = 0.0f;

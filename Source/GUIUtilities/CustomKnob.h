@@ -21,6 +21,8 @@ public:
 
     void paint(Graphics& g) override;
     void mouseDoubleClick(const MouseEvent& event) override;
+    void mouseEnter(const MouseEvent& event) override;
+    void mouseExit(const MouseEvent& event) override;
 
     std::function<void()> onDoubleClick;
 
@@ -34,6 +36,7 @@ private:
     UIEra era = UIEra::heritage;
     bool modernCross = false;
     bool extremeVisual = false;
+    bool hovering = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CustomKnob)
 };

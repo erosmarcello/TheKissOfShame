@@ -423,17 +423,67 @@ void KissOfShameAudioProcessorEditor::paintModernPanel(Graphics& g)
     g.setGradientFill(bg);
     g.fillAll();
 
-    // control deck material
+    // control deck: raised material with edge light, vignette and grain
     auto deck = full.withTop(showReels ? 437.0f : 0.0f).reduced(8.0f, 6.0f);
-    g.setColour(panel.brighter(0.03f));
+
+    g.setColour(Colours::black.withAlpha(0.55f));
+    g.fillRoundedRectangle(deck.translated(0, 2.5f).expanded(1.0f), 15.0f);
+
+    ColourGradient deckFill(panel.brighter(0.06f), deck.getCentreX(), deck.getY(),
+                            panel.darker(0.18f), deck.getCentreX(), deck.getBottom(), false);
+    g.setGradientFill(deckFill);
     g.fillRoundedRectangle(deck, 14.0f);
-    g.setColour(outline.withAlpha(0.6f));
-    g.drawRoundedRectangle(deck, 14.0f, 1.0f);
+
+    {
+        Graphics::ScopedSaveState save(g);
+        Path clip; clip.addRoundedRectangle(deck, 14.0f);
+        g.reduceClipRegion(clip);
+
+        fillGrain(g, deck, 0.55f);
+
+        // ambient ember pooling under the cross — the lamp at the heart of
+        // the machine
+        const auto shameCentre = shameKnob.getBounds().toFloat().getCentre();
+        const auto emberColour = processor.isShameExtreme() ? accentHot : accent;
+        ColourGradient ember(emberColour.withAlpha(processor.isShameExtreme() ? 0.16f : 0.09f),
+                             shameCentre.x, shameCentre.y,
+                             emberColour.withAlpha(0.0f), shameCentre.x, shameCentre.y - 240.0f, true);
+        g.setGradientFill(ember);
+        g.fillRect(deck);
+
+        // vignette so the deck edges fall away
+        ColourGradient vig(Colours::transparentBlack, deck.getCentreX(), deck.getCentreY(),
+                           Colours::black.withAlpha(0.35f), deck.getX(), deck.getY(), true);
+        vig.addColour(0.7, Colours::transparentBlack);
+        g.setGradientFill(vig);
+        g.fillRect(deck);
+    }
+
+    // machined edge: top light, bottom seat, corner screws
+    g.setColour(Colours::white.withAlpha(0.10f));
+    g.drawLine(deck.getX() + 16.0f, deck.getY() + 1.0f, deck.getRight() - 16.0f, deck.getY() + 1.0f, 1.0f);
+    g.setColour(outline.withAlpha(0.8f));
+    g.drawRoundedRectangle(deck, 14.0f, 1.1f);
+
+    drawScrew(g, { deck.getX() + 14.0f, deck.getY() + 14.0f }, 3.4f, 0.7f);
+    drawScrew(g, { deck.getRight() - 14.0f, deck.getY() + 14.0f }, 3.4f, 2.1f);
+    drawScrew(g, { deck.getX() + 14.0f, deck.getBottom() - 14.0f }, 3.4f, 1.4f);
+    drawScrew(g, { deck.getRight() - 14.0f, deck.getBottom() - 14.0f }, 3.4f, 2.8f);
+
+    // engraved section dividers around the center stage
+    g.setColour(Colours::black.withAlpha(0.40f));
+    g.drawVerticalLine((int) (deck.getX() + 232.0f), deck.getY() + 46.0f, deck.getBottom() - 24.0f);
+    g.drawVerticalLine((int) (deck.getRight() - 232.0f), deck.getY() + 46.0f, deck.getBottom() - 24.0f);
+    g.setColour(Colours::white.withAlpha(0.05f));
+    g.drawVerticalLine((int) (deck.getX() + 233.0f), deck.getY() + 46.0f, deck.getBottom() - 24.0f);
+    g.drawVerticalLine((int) (deck.getRight() - 231.0f), deck.getY() + 46.0f, deck.getBottom() - 24.0f);
 
     // wordmark, led by the Infernal Love mark
     auto header = deck.withHeight(30.0f).reduced(14.0f, 5.0f);
-    drawInfernalLoveMark(g, header.removeFromLeft(13.0f).reduced(0.0f, 1.0f),
-                         accent, panel.brighter(0.03f));
+    auto markArea = header.removeFromLeft(13.0f).reduced(0.0f, 1.0f);
+    g.setColour(accent.withAlpha(0.25f));
+    g.fillEllipse(markArea.expanded(7.0f));
+    drawInfernalLoveMark(g, markArea, accent, panel.brighter(0.06f));
     header.removeFromLeft(8.0f);
     g.setColour(textPrimary);
     g.setFont(labelFont(15.0f));

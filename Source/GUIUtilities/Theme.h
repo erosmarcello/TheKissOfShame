@@ -7,10 +7,12 @@
 //    HERITAGE — the original 2014 skeuomorphic identity: Yannick Bonnefoy's
 //    filmstrip knobs, bitmap VU meters, the photographed faceplate. Untouched.
 //
-//    MODERN — the same instrument re-drawn in the flat, dimensional language
-//    of recent macOS: near-black materials, continuous rounding, restrained
-//    depth, and the signature pink as the single accent. Fully vector, so it
-//    scales to any display.
+//    MODERN — the same instrument re-drawn in the flat, *dimensional*
+//    language of recent macOS. Flat is a philosophy, not an excuse: every
+//    surface here carries light — machined bezels, inner shadows, specular
+//    sweeps, surface grain, and the signature pink blooming like a lamp,
+//    not a fill. Fully vector, so it renders pixel-perfect at any retina
+//    scale.
 //
 //  Components never decide colors themselves; they branch on UIEra and call
 //  these helpers, so each era stays coherent everywhere.
@@ -37,66 +39,199 @@ namespace ModernTheme
     inline const Colour textDim      { 0xff98989d };
     inline const Colour accent       { Colour::fromFloatRGBA(1.0f, 0.216f, 0.384f, 1.0f) };
     inline const Colour accentHot    { Colour::fromFloatRGBA(1.0f, 0.10f, 0.16f, 1.0f) };
+    inline const Colour vuCream      { 0xfff0e2c4 };
 
     inline constexpr float rotaryStart = -2.356f; // -135 degrees from 12 o'clock
     inline constexpr float rotaryEnd   =  2.356f;
 
     inline Font labelFont(float height)
     {
-        return Font(FontOptions().withHeight(height)).boldened();
+        return Font(FontOptions().withHeight(height)).boldened().withExtraKerningFactor(0.06f);
+    }
+
+    //==========================================================================
+    // Surface grain: a cached noise tile, laid over panels at low opacity so
+    // large dark areas read as material instead of dead fill.
+    inline const Image& grainTile()
+    {
+        static const Image tile = []
+        {
+            Image img(Image::ARGB, 128, 128, true);
+            Random r(0x51043); // deterministic
+            for (int y = 0; y < 128; ++y)
+                for (int x = 0; x < 128; ++x)
+                {
+                    const float v = r.nextFloat();
+                    if (v > 0.5f)
+                        img.setPixelAt(x, y, Colours::white.withAlpha((v - 0.5f) * 0.10f));
+                    else
+                        img.setPixelAt(x, y, Colours::black.withAlpha((0.5f - v) * 0.12f));
+                }
+            return img;
+        }();
+        return tile;
+    }
+
+    inline void fillGrain(Graphics& g, juce::Rectangle<float> r, float opacity = 1.0f)
+    {
+        g.setTiledImageFill(grainTile(), 0, 0, opacity);
+        g.fillRect(r);
+    }
+
+    //==========================================================================
+    // A machined screw head — the corners of anything that claims to be a panel.
+    inline void drawScrew(Graphics& g, Point<float> c, float radius, float slotAngle)
+    {
+        g.setColour(Colours::black.withAlpha(0.45f));
+        g.fillEllipse(c.x - radius, c.y - radius + 1.2f, radius * 2, radius * 2);
+
+        ColourGradient head(Colour(0xff47474b), c.x, c.y - radius,
+                            Colour(0xff202022), c.x, c.y + radius, false);
+        g.setGradientFill(head);
+        g.fillEllipse(c.x - radius, c.y - radius, radius * 2, radius * 2);
+
+        g.setColour(Colours::white.withAlpha(0.10f));
+        g.drawEllipse(c.x - radius, c.y - radius, radius * 2, radius * 2, 0.8f);
+
+        const auto p1 = c.getPointOnCircumference(radius * 0.72f, slotAngle);
+        const auto p2 = c.getPointOnCircumference(radius * 0.72f, slotAngle + MathConstants<float>::pi);
+        g.setColour(Colours::black.withAlpha(0.7f));
+        g.drawLine({ p1, p2 }, 1.4f);
+    }
+
+    // Soft multi-pass drop shadow under a circle.
+    inline void dropShadowEllipse(Graphics& g, juce::Rectangle<float> r, float strength = 0.5f)
+    {
+        for (int i = 3; i >= 1; --i)
+        {
+            g.setColour(Colours::black.withAlpha(strength * 0.16f * (float) i));
+            g.fillEllipse(r.translated(0.0f, 2.0f + (float) i).expanded((float) (4 - i)));
+        }
+    }
+
+    // Accent arc with bloom: a wide soft pass under a crisp core, ending in
+    // a lit dot — pink as a lamp, not a line.
+    inline void drawBloomArc(Graphics& g, Point<float> centre, float radius,
+                             float fromAngle, float toAngle, Colour colour, float coreWidth = 2.8f)
+    {
+        Path arc;
+        arc.addCentredArc(centre.x, centre.y, radius, radius, 0.0f, fromAngle, toAngle, true);
+
+        g.setColour(colour.withAlpha(0.18f));
+        g.strokePath(arc, PathStrokeType(coreWidth * 3.2f, PathStrokeType::curved, PathStrokeType::rounded));
+        g.setColour(colour.withAlpha(0.45f));
+        g.strokePath(arc, PathStrokeType(coreWidth * 1.8f, PathStrokeType::curved, PathStrokeType::rounded));
+        g.setColour(colour);
+        g.strokePath(arc, PathStrokeType(coreWidth, PathStrokeType::curved, PathStrokeType::rounded));
+
+        const auto tip = centre.getPointOnCircumference(radius, toAngle);
+        g.setColour(colour.withAlpha(0.30f));
+        g.fillEllipse(tip.x - coreWidth * 1.8f, tip.y - coreWidth * 1.8f, coreWidth * 3.6f, coreWidth * 3.6f);
+        g.setColour(Colours::white.withAlpha(0.85f));
+        g.fillEllipse(tip.x - coreWidth * 0.55f, tip.y - coreWidth * 0.55f, coreWidth * 1.1f, coreWidth * 1.1f);
     }
 
     //==========================================================================
     inline void drawKnob(Graphics& g, juce::Rectangle<float> bounds, float value01,
-                         bool drawCross = false, bool extreme = false)
+                         bool drawCross = false, bool extreme = false, bool hover = false)
     {
-        auto r = bounds.reduced(bounds.getWidth() * 0.10f);
+        auto r = bounds.reduced(bounds.getWidth() * 0.12f);
         const auto centre = r.getCentre();
         const float radius = r.getWidth() * 0.5f;
         const float angle = rotaryStart + value01 * (rotaryEnd - rotaryStart);
+        const Colour glowColour = extreme ? accentHot : accent;
+
+        // seated in the panel: shadow first
+        dropShadowEllipse(g, r, hover ? 0.65f : 0.5f);
 
         if (extreme)
         {
-            ColourGradient glow(accentHot.withAlpha(0.40f), centre.x, centre.y,
-                                accentHot.withAlpha(0.0f), centre.x, centre.y - radius * 1.5f, true);
-            g.setGradientFill(glow);
-            g.fillEllipse(bounds.expanded(6.0f));
+            ColourGradient heat(accentHot.withAlpha(0.35f), centre.x, centre.y,
+                                accentHot.withAlpha(0.0f), centre.x, centre.y - radius * 1.7f, true);
+            g.setGradientFill(heat);
+            g.fillEllipse(bounds.expanded(8.0f));
         }
 
-        // body
-        ColourGradient body(panelRaised, centre.x, r.getY(), panelDeep, centre.x, r.getBottom(), false);
-        g.setGradientFill(body);
+        // bezel ring
+        ColourGradient bezel(Colour(0xff414146), centre.x, r.getY(),
+                             Colour(0xff141416), centre.x, r.getBottom(), false);
+        g.setGradientFill(bezel);
         g.fillEllipse(r);
-        g.setColour(outline);
-        g.drawEllipse(r, 1.5f);
 
-        // track + value arcs
-        const float arcRadius = radius + bounds.getWidth() * 0.06f;
+        // cap, slightly inset, with its own light
+        auto cap = r.reduced(radius * 0.10f);
+        ColourGradient capFill(Colour(hover ? 0xff343438 : 0xff2e2e32), centre.x, cap.getY(),
+                               Colour(0xff18181a), centre.x, cap.getBottom(), false);
+        g.setGradientFill(capFill);
+        g.fillEllipse(cap);
+
+        // specular sweep across the upper cap
+        {
+            Graphics::ScopedSaveState save(g);
+            Path clip; clip.addEllipse(cap);
+            g.reduceClipRegion(clip);
+            ColourGradient spec(Colours::white.withAlpha(hover ? 0.10f : 0.07f),
+                                centre.x - radius * 0.5f, cap.getY(),
+                                Colours::transparentWhite, centre.x, centre.y, false);
+            g.setGradientFill(spec);
+            g.fillEllipse(cap.withHeight(cap.getHeight() * 0.55f));
+        }
+
+        // inner shadow at the cap's top seat
+        g.setColour(Colours::black.withAlpha(0.35f));
+        g.drawEllipse(cap.expanded(0.6f), 1.2f);
+        g.setColour(Colours::white.withAlpha(0.06f));
+        g.drawEllipse(r.reduced(0.6f), 1.0f);
+
+        // tick ring
+        const float tickRadius = radius + bounds.getWidth() * 0.085f;
+        for (int t = 0; t <= 10; ++t)
+        {
+            const float a = rotaryStart + (rotaryEnd - rotaryStart) * (float) t / 10.0f;
+            const bool major = (t == 0 || t == 5 || t == 10);
+            const auto p1 = centre.getPointOnCircumference(tickRadius, a);
+            const auto p2 = centre.getPointOnCircumference(tickRadius - (major ? 4.5f : 2.5f), a);
+            g.setColour(Colours::white.withAlpha(major ? 0.28f : 0.14f));
+            g.drawLine({ p1, p2 }, major ? 1.6f : 1.0f);
+        }
+
+        // track + blooming value arc
+        const float arcRadius = radius + bounds.getWidth() * 0.045f;
         Path track;
         track.addCentredArc(centre.x, centre.y, arcRadius, arcRadius, 0.0f, rotaryStart, rotaryEnd, true);
-        g.setColour(outline);
-        g.strokePath(track, PathStrokeType(2.5f, PathStrokeType::curved, PathStrokeType::rounded));
+        g.setColour(Colours::black.withAlpha(0.55f));
+        g.strokePath(track, PathStrokeType(3.4f, PathStrokeType::curved, PathStrokeType::rounded));
+        g.setColour(Colours::white.withAlpha(0.07f));
+        g.strokePath(track, PathStrokeType(1.2f, PathStrokeType::curved, PathStrokeType::rounded));
 
         if (value01 > 0.001f)
+            drawBloomArc(g, centre, arcRadius, rotaryStart, angle, glowColour, 2.6f);
+
+        // pointer: lit bar with a shadow under it
         {
-            Path value;
-            value.addCentredArc(centre.x, centre.y, arcRadius, arcRadius, 0.0f, rotaryStart, angle, true);
-            g.setColour(extreme ? accentHot : accent);
-            g.strokePath(value, PathStrokeType(2.5f, PathStrokeType::curved, PathStrokeType::rounded));
+            Path pointerShadow;
+            pointerShadow.addRoundedRectangle(-1.8f, -radius * 0.88f, 3.6f, radius * 0.34f, 1.8f);
+            g.setColour(Colours::black.withAlpha(0.5f));
+            g.fillPath(pointerShadow, AffineTransform::rotation(angle).translated(centre.x, centre.y + 1.5f));
+
+            Path pointer;
+            pointer.addRoundedRectangle(-1.5f, -radius * 0.90f, 3.0f, radius * 0.32f, 1.5f);
+            g.setColour(textPrimary);
+            g.fillPath(pointer, AffineTransform::rotation(angle).translated(centre.x, centre.y));
+
+            const auto tip = centre.getPointOnCircumference(radius * 0.80f, angle);
+            g.setColour(glowColour.withAlpha(0.55f));
+            g.fillEllipse(tip.x - 2.2f, tip.y - 2.2f, 4.4f, 4.4f);
         }
 
-        // pointer
-        Path pointer;
-        pointer.addRoundedRectangle(-1.5f, -radius * 0.92f, 3.0f, radius * 0.34f, 1.5f);
-        g.setColour(textPrimary);
-        g.fillPath(pointer, AffineTransform::rotation(angle).translated(centre.x, centre.y));
-
-        // the cross — brand continuity on the Shame knob
+        // the cross — brand continuity for knobs that carry it in vector form
         if (drawCross)
         {
-            const float arm = radius * 0.42f;
-            const float thick = jmax(3.0f, radius * 0.14f);
-            g.setColour(extreme ? accentHot : accent);
+            const float arm = radius * 0.40f;
+            const float thick = jmax(3.0f, radius * 0.13f);
+            g.setColour(glowColour.withAlpha(0.35f));
+            g.fillRoundedRectangle(centre.x - thick * 0.7f, centre.y - arm - 1.0f, thick * 1.4f, arm * 2.0f + 2.0f, thick * 0.5f);
+            g.setColour(glowColour);
             g.fillRoundedRectangle(centre.x - thick * 0.5f, centre.y - arm, thick, arm * 2.0f, thick * 0.4f);
             g.fillRoundedRectangle(centre.x - arm, centre.y - thick * 0.5f, arm * 2.0f, thick, thick * 0.4f);
         }
@@ -111,12 +246,16 @@ namespace ModernTheme
     {
         const float w = r.getWidth(), h = r.getHeight();
         const float cx = r.getCentreX();
-        const float t = w * 0.30f;                 // bar thickness
+        const float t = w * 0.30f;                    // bar thickness
         const float crossbarY = r.getY() + h * 0.62f; // inverted: bar in the lower third
 
         Path cross;
         cross.addRoundedRectangle(cx - t * 0.5f, r.getY(), t, h, t * 0.35f);
         cross.addRoundedRectangle(r.getX(), crossbarY - t * 0.5f, w, t, t * 0.35f);
+
+        // halo
+        g.setColour(crossColour.withAlpha(0.30f));
+        g.strokePath(cross, PathStrokeType(2.6f));
         g.setColour(crossColour);
         g.fillPath(cross);
 
@@ -133,64 +272,137 @@ namespace ModernTheme
     }
 
     //==========================================================================
+    // Backlit cream VU glass: the one warm object on the dark deck.
     inline void drawVUMeter(Graphics& g, juce::Rectangle<float> bounds, float value01)
     {
         auto r = bounds.reduced(2.0f);
-        g.setColour(panelRaised);
-        g.fillRoundedRectangle(r, 8.0f);
-        g.setColour(outline);
-        g.drawRoundedRectangle(r, 8.0f, 1.2f);
 
-        const auto pivot = Point<float>(r.getCentreX(), r.getBottom() - r.getHeight() * 0.18f);
-        const float needleLen = r.getHeight() * 0.62f;
+        // housing shadow + chrome-dark bezel
+        g.setColour(Colours::black.withAlpha(0.5f));
+        g.fillRoundedRectangle(r.translated(0, 2.0f).expanded(1.5f), 9.0f);
+
+        ColourGradient bezel(Colour(0xff3c3c40), r.getCentreX(), r.getY(),
+                             Colour(0xff121214), r.getCentreX(), r.getBottom(), false);
+        g.setGradientFill(bezel);
+        g.fillRoundedRectangle(r, 9.0f);
+
+        // the lit face
+        auto face = r.reduced(4.0f);
+        ColourGradient cream(vuCream, face.getCentreX(), face.getY(),
+                             Colour(0xffd8c498), face.getCentreX(), face.getBottom(), false);
+        g.setGradientFill(cream);
+        g.fillRoundedRectangle(face, 6.0f);
+
+        // warm backlight pooling at the bottom
+        ColourGradient backlight(Colour(0xffffeecf).withAlpha(0.85f), face.getCentreX(), face.getBottom() - 6.0f,
+                                 Colour(0xffffeecf).withAlpha(0.0f), face.getCentreX(), face.getY() + face.getHeight() * 0.35f, true);
+        g.setGradientFill(backlight);
+        g.fillRoundedRectangle(face, 6.0f);
+
+        const auto pivot = Point<float>(face.getCentreX(), face.getBottom() - face.getHeight() * 0.16f);
+        const float needleLen = face.getHeight() * 0.62f;
         const float minAngle = -0.85f, maxAngle = 0.85f;
 
-        // scale ticks
-        g.setColour(textDim);
-        for (int t = 0; t <= 6; ++t)
+        // scale: minor + major ticks
+        for (int t = 0; t <= 12; ++t)
         {
-            const float a = minAngle + (maxAngle - minAngle) * (float) t / 6.0f;
+            const float a = minAngle + (maxAngle - minAngle) * (float) t / 12.0f;
+            const bool major = (t % 3 == 0);
             const auto p1 = pivot.getPointOnCircumference(needleLen, a);
-            const auto p2 = pivot.getPointOnCircumference(needleLen - 5.0f, a);
-            g.drawLine({ p1, p2 }, t >= 5 ? 1.8f : 1.0f);
+            const auto p2 = pivot.getPointOnCircumference(needleLen - (major ? 6.0f : 3.2f), a);
+            g.setColour(Colour(0xff3b3024).withAlpha(major ? 0.85f : 0.5f));
+            g.drawLine({ p1, p2 }, major ? 1.5f : 0.9f);
         }
 
-        // red zone
-        Path redZone;
-        redZone.addCentredArc(pivot.x, pivot.y, needleLen + 3.0f, needleLen + 3.0f, 0.0f,
-                              minAngle + (maxAngle - minAngle) * 0.78f, maxAngle, true);
-        g.setColour(accent);
-        g.strokePath(redZone, PathStrokeType(2.0f));
+        // red zone wedge
+        {
+            Path red;
+            const float a0 = minAngle + (maxAngle - minAngle) * 0.78f;
+            red.addCentredArc(pivot.x, pivot.y, needleLen + 1.5f, needleLen + 1.5f, 0.0f, a0, maxAngle, true);
+            g.setColour(accent.darker(0.1f));
+            g.strokePath(red, PathStrokeType(2.6f, PathStrokeType::curved, PathStrokeType::butt));
+        }
 
-        // needle
+        g.setColour(Colour(0xff3b3024).withAlpha(0.75f));
+        g.setFont(labelFont(9.0f));
+        g.drawText("VU", face.withTrimmedBottom(face.getHeight() * 0.30f), Justification::centred, false);
+
+        // needle with shadow
         const float needleAngle = minAngle + (maxAngle - minAngle) * jlimit(0.0f, 1.0f, value01);
-        g.setColour(textPrimary);
-        g.drawLine(Line<float>(pivot, pivot.getPointOnCircumference(needleLen - 2.0f, needleAngle)), 2.0f);
+        g.setColour(Colours::black.withAlpha(0.30f));
+        g.drawLine(Line<float>(pivot.translated(0.8f, 1.2f),
+                               pivot.translated(0.8f, 1.2f).getPointOnCircumference(needleLen - 2.0f, needleAngle)), 1.8f);
+        g.setColour(Colour(0xff26201a));
+        g.drawLine(Line<float>(pivot, pivot.getPointOnCircumference(needleLen - 2.0f, needleAngle)), 1.6f);
 
-        g.setColour(panelDeep);
+        // pivot boss
+        ColourGradient boss(Colour(0xff6d6d72), pivot.x, pivot.y - 4.0f, Colour(0xff222226), pivot.x, pivot.y + 4.0f, false);
+        g.setGradientFill(boss);
         g.fillEllipse(pivot.x - 4.0f, pivot.y - 4.0f, 8.0f, 8.0f);
 
-        g.setColour(textDim);
-        g.setFont(labelFont(10.0f));
-        g.drawText("VU", r.removeFromBottom(14.0f), Justification::centred, false);
+        // glass: diagonal highlight
+        {
+            Graphics::ScopedSaveState save(g);
+            Path clip; clip.addRoundedRectangle(face, 6.0f);
+            g.reduceClipRegion(clip);
+            ColourGradient glass(Colours::white.withAlpha(0.16f), face.getX(), face.getY(),
+                                 Colours::transparentWhite, face.getX() + face.getWidth() * 0.55f,
+                                 face.getY() + face.getHeight() * 0.7f, false);
+            g.setGradientFill(glass);
+            g.fillRect(face.withTrimmedBottom(face.getHeight() * 0.45f));
+        }
+
+        // bezel inner line + corner screws
+        g.setColour(Colours::white.withAlpha(0.08f));
+        g.drawRoundedRectangle(r.reduced(0.7f), 8.0f, 1.0f);
+        drawScrew(g, { r.getX() + 6.5f, r.getY() + 6.5f }, 2.6f, 0.6f);
+        drawScrew(g, { r.getRight() - 6.5f, r.getY() + 6.5f }, 2.6f, 2.2f);
+        drawScrew(g, { r.getX() + 6.5f, r.getBottom() - 6.5f }, 2.6f, 1.1f);
+        drawScrew(g, { r.getRight() - 6.5f, r.getBottom() - 6.5f }, 2.6f, 2.9f);
     }
 
     //==========================================================================
     inline void drawReel(Graphics& g, Point<float> centre, float radius, float angleRad)
     {
-        // platter
-        ColourGradient body(panelRaised, centre.x, centre.y - radius, panelDeep, centre.x, centre.y + radius, false);
-        g.setGradientFill(body);
-        g.fillEllipse(centre.x - radius, centre.y - radius, radius * 2, radius * 2);
-        g.setColour(outline);
-        g.drawEllipse(centre.x - radius, centre.y - radius, radius * 2, radius * 2, 2.0f);
+        // floor shadow
+        dropShadowEllipse(g, { centre.x - radius, centre.y - radius, radius * 2, radius * 2 }, 0.7f);
 
-        // tape pack
-        const float packR = radius * 0.82f;
-        g.setColour(panelDeep.darker(0.3f));
+        // machined outer rim
+        ColourGradient rim(Colour(0xff3e3e44), centre.x, centre.y - radius,
+                           Colour(0xff101012), centre.x, centre.y + radius, false);
+        g.setGradientFill(rim);
+        g.fillEllipse(centre.x - radius, centre.y - radius, radius * 2, radius * 2);
+        g.setColour(Colours::white.withAlpha(0.12f));
+        g.drawEllipse(centre.x - radius, centre.y - radius + 0.5f, radius * 2, radius * 2, 1.2f);
+        g.setColour(Colours::black.withAlpha(0.6f));
+        g.drawEllipse(centre.x - radius, centre.y - radius, radius * 2, radius * 2, 1.0f);
+
+        // tape pack with wind grooves
+        const float packR = radius * 0.84f;
+        ColourGradient pack(Colour(0xff141416), centre.x, centre.y - packR,
+                            Colour(0xff0a0a0b), centre.x, centre.y + packR, false);
+        g.setGradientFill(pack);
         g.fillEllipse(centre.x - packR, centre.y - packR, packR * 2, packR * 2);
 
-        // three spoke windows, rotating
+        for (int i = 1; i <= 5; ++i)
+        {
+            const float gr = packR * (0.62f + 0.075f * (float) i);
+            g.setColour(Colours::white.withAlpha(0.030f + 0.006f * (float) i));
+            g.drawEllipse(centre.x - gr, centre.y - gr, gr * 2, gr * 2, 0.8f);
+        }
+
+        // sheen across the upper pack
+        {
+            Graphics::ScopedSaveState save(g);
+            Path clip; clip.addEllipse(centre.x - packR, centre.y - packR, packR * 2, packR * 2);
+            g.reduceClipRegion(clip);
+            ColourGradient sheen(Colours::white.withAlpha(0.06f), centre.x - packR * 0.6f, centre.y - packR,
+                                 Colours::transparentWhite, centre.x, centre.y, false);
+            g.setGradientFill(sheen);
+            g.fillRect(centre.x - packR, centre.y - packR, packR * 2, packR * 0.9f);
+        }
+
+        // three spoke windows, rotating, with lit edges
         for (int s = 0; s < 3; ++s)
         {
             const float a = angleRad + (float) s * MathConstants<float>::twoPi / 3.0f;
@@ -198,39 +410,79 @@ namespace ModernTheme
             window.addCentredArc(centre.x, centre.y, radius * 0.52f, radius * 0.52f, a, -0.42f, 0.42f, true);
             window.addCentredArc(centre.x, centre.y, radius * 0.24f, radius * 0.24f, a, 0.42f, -0.42f, false);
             window.closeSubPath();
-            g.setColour(panel.brighter(0.06f));
+            g.setColour(panel.brighter(0.10f));
             g.fillPath(window);
+            g.setColour(Colours::white.withAlpha(0.08f));
+            g.strokePath(window, PathStrokeType(1.0f));
         }
 
-        // hub
+        // hub: metal boss, accent ring, three bolts that turn with the reel
+        const float hubR = radius * 0.155f;
+        ColourGradient hub(Colour(0xff4b4b50), centre.x, centre.y - hubR,
+                           Colour(0xff1c1c1f), centre.x, centre.y + hubR, false);
+        g.setGradientFill(hub);
+        g.fillEllipse(centre.x - hubR, centre.y - hubR, hubR * 2, hubR * 2);
+
+        g.setColour(accent.withAlpha(0.35f));
+        g.drawEllipse(centre.x - hubR - 2.5f, centre.y - hubR - 2.5f, (hubR + 2.5f) * 2, (hubR + 2.5f) * 2, 3.0f);
         g.setColour(accent);
-        g.fillEllipse(centre.x - radius * 0.12f, centre.y - radius * 0.12f, radius * 0.24f, radius * 0.24f);
-        g.setColour(panelDeep);
-        g.fillEllipse(centre.x - radius * 0.045f, centre.y - radius * 0.045f, radius * 0.09f, radius * 0.09f);
+        g.drawEllipse(centre.x - hubR, centre.y - hubR, hubR * 2, hubR * 2, 1.8f);
+
+        for (int b = 0; b < 3; ++b)
+        {
+            const float a = angleRad + (float) b * MathConstants<float>::twoPi / 3.0f + 0.5f;
+            const auto p = centre.getPointOnCircumference(hubR * 0.55f, a);
+            g.setColour(Colour(0xff0d0d0e));
+            g.fillEllipse(p.x - 1.6f, p.y - 1.6f, 3.2f, 3.2f);
+        }
     }
 
     //==========================================================================
     inline void drawButton(Graphics& g, juce::Rectangle<float> bounds, const String& label,
-                           bool on, bool pressed)
+                           bool on, bool pressed, bool hover = false)
     {
-        auto r = bounds.reduced(1.0f);
+        auto r = bounds.reduced(1.5f);
+        const float corner = jmin(7.0f, r.getHeight() * 0.28f);
+
+        if (! pressed)
+        {
+            g.setColour(Colours::black.withAlpha(0.40f));
+            g.fillRoundedRectangle(r.translated(0, 1.5f), corner);
+        }
 
         if (on)
         {
-            g.setColour(pressed ? accent.darker(0.3f) : accent);
-            g.fillRoundedRectangle(r, 6.0f);
-            g.setColour(panelDeep);
+            // lit: accent gradient + outer bloom
+            g.setColour(accent.withAlpha(hover ? 0.40f : 0.28f));
+            g.fillRoundedRectangle(r.expanded(2.5f), corner + 2.5f);
+
+            ColourGradient lit(accent.brighter(pressed ? -0.1f : 0.12f), r.getCentreX(), r.getY(),
+                               accent.darker(pressed ? 0.45f : 0.25f), r.getCentreX(), r.getBottom(), false);
+            g.setGradientFill(lit);
+            g.fillRoundedRectangle(r, corner);
+
+            g.setColour(Colours::white.withAlpha(0.25f));
+            g.drawLine(r.getX() + corner, r.getY() + 1.0f, r.getRight() - corner, r.getY() + 1.0f, 1.0f);
+
+            g.setColour(Colour(0xff2a060f));
         }
         else
         {
-            g.setColour(pressed ? panelDeep : panelRaised);
-            g.fillRoundedRectangle(r, 6.0f);
+            ColourGradient body(Colour(pressed ? 0xff1a1a1c : (hover ? 0xff39393d : 0xff313135)),
+                                r.getCentreX(), r.getY(),
+                                Colour(pressed ? 0xff111113 : 0xff1d1d20), r.getCentreX(), r.getBottom(), false);
+            g.setGradientFill(body);
+            g.fillRoundedRectangle(r, corner);
+
+            g.setColour(Colours::white.withAlpha(hover ? 0.14f : 0.08f));
+            g.drawLine(r.getX() + corner, r.getY() + 1.0f, r.getRight() - corner, r.getY() + 1.0f, 1.0f);
             g.setColour(outline);
-            g.drawRoundedRectangle(r, 6.0f, 1.2f);
-            g.setColour(textDim);
+            g.drawRoundedRectangle(r, corner, 1.1f);
+
+            g.setColour(hover ? textPrimary : textDim);
         }
 
         g.setFont(labelFont(jmin(11.0f, r.getHeight() * 0.42f)));
-        g.drawText(label, r, Justification::centred, false);
+        g.drawText(label, pressed ? r.translated(0, 1.0f) : r, Justification::centred, false);
     }
 }

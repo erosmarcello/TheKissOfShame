@@ -46,12 +46,13 @@ public:
         applySize();
     }
 
-    void paintButton(Graphics& g, bool /*highlighted*/, bool down) override
+    void paintButton(Graphics& g, bool highlighted, bool down) override
     {
         if (era == UIEra::modern)
         {
             const bool on = getToggleState();
-            ModernTheme::drawButton(g, getLocalBounds().toFloat(), on ? labelOn : labelOff, on, down);
+            ModernTheme::drawButton(g, getLocalBounds().toFloat(), on ? labelOn : labelOff,
+                                    on, down, highlighted);
             return;
         }
 
