@@ -25,4 +25,5 @@ namespace StateIDs
     inline constexpr auto shameExtreme = "shameExtreme"; // double-click the Shame knob
     inline constexpr auto uiEra        = "uiEra";        // "heritage" | "modern"
     inline constexpr auto showReels    = "showReels";
+    inline constexpr auto uiScale      = "uiScale";      // editor zoom, 0.6 - 2.0
 }

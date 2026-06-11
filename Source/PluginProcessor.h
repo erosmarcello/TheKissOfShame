@@ -55,6 +55,9 @@ public:
     bool getShowReels() const noexcept                   { return showReels.load(); }
     void setShowReels(bool show) noexcept                { showReels.store(show); }
 
+    float getUIScale() const noexcept                    { return uiScale.load(); }
+    void setUIScale(float scale) noexcept                { uiScale.store(jlimit(0.6f, 2.0f, scale)); }
+
     //==========================================================================
     float getCurrentRMSL() const noexcept                { return curRMSL.load(); }
     float getCurrentRMSR() const noexcept                { return curRMSR.load(); }
@@ -82,6 +85,7 @@ private:
 
     std::atomic<bool> shameExtreme { false };
     std::atomic<bool> showReels { true };
+    std::atomic<float> uiScale { 1.0f };
 
     CriticalSection eraLock;
     String uiEra { "heritage" };

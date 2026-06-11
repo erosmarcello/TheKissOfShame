@@ -144,6 +144,16 @@ int main()
             juce::MessageManager::getInstance()->runDispatchLoopUntil(100);
             auto frameB = editor->createComponentSnapshot(shameArea);
 
+            std::printf("  [gui/%s] editor %dx%d, snapshot %dx%d\n", eraName,
+                        editor->getWidth(), editor->getHeight(), frameA.getWidth(), frameA.getHeight());
+
+            if (frameA.getWidth() == 0 || frameA.getHeight() == 0)
+            {
+                std::printf("FAIL [gui/%s]: empty snapshot\n", eraName);
+                ++failures;
+                continue;
+            }
+
             int64_t diff = 0;
             for (int y = 0; y < frameA.getHeight(); ++y)
                 for (int x = 0; x < frameA.getWidth(); ++x)

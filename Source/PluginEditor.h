@@ -24,10 +24,7 @@ public:
     ~KissOfShameAudioProcessorEditor() override = default;
 
     void paint(Graphics&) override;
-    void paintOverChildren(Graphics&) override;
-    void resized() override {}
-
-    void mouseDoubleClick(const MouseEvent& event) override;
+    void resized() override;
 
     // Headless hook for the snapshot tool / GUI tests.
     void showEnvironmentPicker() { environmentsComponent.showPicker(); }
@@ -36,12 +33,32 @@ private:
     void timerCallback() override;
     void setReelMode(bool shouldShowReels);
     void applyReelVisibility();
+    void toggleReels();
     void toggleExtreme();
     void applyEra(UIEra newEra, bool animate);
     void positionEraDependentControls();
+    void updateSizeConstraints();
     void paintModernPanel(Graphics& g);
+    void paintContentOverChildren(Graphics& g);
+
+    //==========================================================================
+    // All controls live on this fixed 960-wide logical canvas; the editor
+    // scales it uniformly, so the UI is resizable and razor-sharp at any
+    // size (vectors redraw, they don't stretch).
+    class ScaledContent : public Component
+    {
+    public:
+        std::function<void(Graphics&)> onPaint, onPaintOver;
+        std::function<void()> onDoubleClick;
+
+        void paint(Graphics& g) override              { if (onPaint) onPaint(g); }
+        void paintOverChildren(Graphics& g) override  { if (onPaintOver) onPaintOver(g); }
+        void mouseDoubleClick(const MouseEvent&) override { if (onDoubleClick) onDoubleClick(); }
+    };
 
     KissOfShameAudioProcessor& processor;
+
+    ScaledContent content;
 
     //==========================================================================
     // Snapshot of the outgoing era, faded out over ~300ms when the switch
@@ -114,6 +131,7 @@ private:
     //==========================================================================
     bool showReels = true;
     bool linkIOMode = false;
+    bool constructionComplete = false;
     int priorBlockCount = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(KissOfShameAudioProcessorEditor)

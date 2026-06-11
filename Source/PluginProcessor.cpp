@@ -138,6 +138,7 @@ void KissOfShameAudioProcessor::getStateInformation(MemoryBlock& destData)
     state.setProperty(StateIDs::shameExtreme, shameExtreme.load(), nullptr);
     state.setProperty(StateIDs::uiEra, getUIEra(), nullptr);
     state.setProperty(StateIDs::showReels, showReels.load(), nullptr);
+    state.setProperty(StateIDs::uiScale, uiScale.load(), nullptr);
 
     if (auto xml = state.createXml())
         copyXmlToBinary(*xml, destData);
@@ -154,6 +155,7 @@ void KissOfShameAudioProcessor::setStateInformation(const void* data, int sizeIn
             shameExtreme.store((bool) state.getProperty(StateIDs::shameExtreme, false));
             setUIEra(state.getProperty(StateIDs::uiEra, "heritage").toString());
             showReels.store((bool) state.getProperty(StateIDs::showReels, true));
+            setUIScale((float) (double) state.getProperty(StateIDs::uiScale, 1.0));
 
             apvts.replaceState(state);
         }
