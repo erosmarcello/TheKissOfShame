@@ -21,7 +21,10 @@ public:
 
     void updateImageWithValue(float value)
     {
-        setCurrentValue(value);
+        // Needle ballistics: the displayed value eases toward the target so
+        // meters swing like hardware instead of snapping like counters.
+        const float target = jlimit(minValue, maxValue, value);
+        curValue = curValue + (target - curValue) * 0.38f;
         repaint();
     }
 

@@ -2,10 +2,10 @@
 
 #include "Theme.h"
 
-// The glow behind the reels. Stock: the signature pink. Extreme mode runs
-// hotter — the backlight shifts toward red so you always know the machine
-// is past its stops. The modern era keeps only a low ember of it.
-class BacklightComponent : public Component
+// The glow behind the machine. Heritage: the original solid pink wash.
+// Modern: a living ember — it breathes on its own slow cycle, swells with
+// the program audio, and runs hot and fast in Extreme mode.
+class BacklightComponent : public Component, private Timer
 {
 public:
     BacklightComponent()
@@ -19,6 +19,10 @@ public:
     void setEra(UIEra newEra)
     {
         era = newEra;
+        if (era == UIEra::modern)
+            startTimerHz(30);
+        else
+            stopTimer();
         repaint();
     }
 
@@ -26,6 +30,12 @@ public:
     {
         extreme = shouldBeExtreme;
         repaint();
+    }
+
+    // Fed from the editor's meter poll; smoothed here.
+    void setAudioLevel(float level01)
+    {
+        targetLevel = jlimit(0.0f, 1.0f, level01);
     }
 
     void paint(Graphics& g) override
@@ -36,10 +46,23 @@ public:
         if (era == UIEra::modern)
         {
             auto r = getLocalBounds().toFloat();
-            ColourGradient ember(glow.withAlpha(extreme ? 0.28f : 0.14f), r.getCentreX(), r.getBottom(),
-                                 Colours::transparentBlack, r.getCentreX(), r.getY(), false);
+
+            const float breath = 0.5f + 0.5f * std::sin(phase);
+            const float intensity = (extreme ? 0.16f : 0.09f)
+                                  + (extreme ? 0.08f : 0.05f) * breath
+                                  + 0.26f * level;
+
+            // ember pooled beneath the cross
+            ColourGradient ember(glow.withAlpha(intensity), 488.0f, 150.0f,
+                                 glow.withAlpha(0.0f), 488.0f, -260.0f, true);
             g.setGradientFill(ember);
             g.fillRect(r);
+
+            // rim light along the deck's lower edge
+            ColourGradient rim(glow.withAlpha(intensity * 0.55f), r.getCentreX(), r.getBottom(),
+                               glow.withAlpha(0.0f), r.getCentreX(), r.getBottom() - 46.0f, false);
+            g.setGradientFill(rim);
+            g.fillRect(r.withTop(r.getBottom() - 46.0f));
             return;
         }
 
@@ -47,8 +70,23 @@ public:
     }
 
 private:
+    void timerCallback() override
+    {
+        phase += extreme ? 0.20f : 0.085f;
+        if (phase > MathConstants<float>::twoPi)
+            phase -= MathConstants<float>::twoPi;
+
+        level += (targetLevel - level) * 0.22f;
+
+        repaint();
+    }
+
     UIEra era = UIEra::heritage;
     bool extreme = false;
+
+    float phase = 0.0f;
+    float level = 0.0f;
+    float targetLevel = 0.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(BacklightComponent)
 };

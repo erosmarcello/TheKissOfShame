@@ -29,7 +29,8 @@ void ImageInteractor::paint(Graphics& g)
     if (era == UIEra::modern)
     {
         if (modernStyle == ModernStyle::vuMeter)
-            ModernTheme::drawVUMeter(g, getLocalBounds().toFloat(), getNormalizedValue());
+            ModernTheme::drawVUMeter(g, getLocalBounds().toFloat(), getNormalizedValue(),
+                                     getNormalizedValue());
 
         return; // hidden: the vector era draws its own world
     }

@@ -272,80 +272,125 @@ namespace ModernTheme
     }
 
     //==========================================================================
-    // Backlit cream VU glass: the one warm object on the dark deck.
-    inline void drawVUMeter(Graphics& g, juce::Rectangle<float> bounds, float value01)
+    // Recessed seats: controls sit IN the deck, not on it.
+    inline void drawRoundWell(Graphics& g, juce::Rectangle<float> r)
+    {
+        g.setColour(Colours::black.withAlpha(0.38f));
+        g.fillEllipse(r);
+        g.setColour(Colours::black.withAlpha(0.55f));
+        g.drawEllipse(r.translated(0.0f, -0.8f), 1.6f);
+        g.setColour(Colours::white.withAlpha(0.07f));
+        g.drawEllipse(r.translated(0.0f, 0.9f), 1.0f);
+    }
+
+    inline void drawRectWell(Graphics& g, juce::Rectangle<float> r, float corner)
+    {
+        g.setColour(Colours::black.withAlpha(0.38f));
+        g.fillRoundedRectangle(r, corner);
+        g.setColour(Colours::black.withAlpha(0.55f));
+        g.drawRoundedRectangle(r.translated(0.0f, -0.8f), corner, 1.6f);
+        g.setColour(Colours::white.withAlpha(0.07f));
+        g.drawRoundedRectangle(r.translated(0.0f, 0.9f), corner, 1.0f);
+    }
+
+    //==========================================================================
+    // Ember-glass VU: smoked dark glass over a pink-amber lamp that breathes
+    // with the program level. The needle is ivory with a pink bloom trail.
+    inline void drawVUMeter(Graphics& g, juce::Rectangle<float> bounds, float value01, float glow01 = 0.0f)
     {
         auto r = bounds.reduced(2.0f);
+        glow01 = jlimit(0.0f, 1.0f, glow01);
+        const Colour emberLamp = Colour(0xffff6a4e).interpolatedWith(accent, 0.55f);
+        const Colour ivory = Colour(0xffe9dcc0);
 
-        // housing shadow + chrome-dark bezel
+        // housing shadow + machined bezel
         g.setColour(Colours::black.withAlpha(0.5f));
         g.fillRoundedRectangle(r.translated(0, 2.0f).expanded(1.5f), 9.0f);
 
-        ColourGradient bezel(Colour(0xff3c3c40), r.getCentreX(), r.getY(),
-                             Colour(0xff121214), r.getCentreX(), r.getBottom(), false);
+        ColourGradient bezel(Colour(0xff424247), r.getCentreX(), r.getY(),
+                             Colour(0xff101012), r.getCentreX(), r.getBottom(), false);
         g.setGradientFill(bezel);
         g.fillRoundedRectangle(r, 9.0f);
 
-        // the lit face
+        // smoked glass face
         auto face = r.reduced(4.0f);
-        ColourGradient cream(vuCream, face.getCentreX(), face.getY(),
-                             Colour(0xffd8c498), face.getCentreX(), face.getBottom(), false);
-        g.setGradientFill(cream);
-        g.fillRoundedRectangle(face, 6.0f);
-
-        // warm backlight pooling at the bottom
-        ColourGradient backlight(Colour(0xffffeecf).withAlpha(0.85f), face.getCentreX(), face.getBottom() - 6.0f,
-                                 Colour(0xffffeecf).withAlpha(0.0f), face.getCentreX(), face.getY() + face.getHeight() * 0.35f, true);
-        g.setGradientFill(backlight);
+        ColourGradient smoke(Colour(0xff221511), face.getCentreX(), face.getY(),
+                             Colour(0xff0c0807), face.getCentreX(), face.getBottom(), false);
+        g.setGradientFill(smoke);
         g.fillRoundedRectangle(face, 6.0f);
 
         const auto pivot = Point<float>(face.getCentreX(), face.getBottom() - face.getHeight() * 0.16f);
         const float needleLen = face.getHeight() * 0.62f;
         const float minAngle = -0.85f, maxAngle = 0.85f;
 
-        // scale: minor + major ticks
+        // the lamp behind the glass: brightness rides the audio
+        {
+            Graphics::ScopedSaveState save(g);
+            Path clip; clip.addRoundedRectangle(face, 6.0f);
+            g.reduceClipRegion(clip);
+
+            ColourGradient lamp(emberLamp.withAlpha(0.16f + 0.45f * glow01), pivot.x, pivot.y,
+                                emberLamp.withAlpha(0.0f), pivot.x, face.getY() - face.getHeight() * 0.25f, true);
+            g.setGradientFill(lamp);
+            g.fillRoundedRectangle(face, 6.0f);
+
+            fillGrain(g, face, 0.35f);
+        }
+
+        // scale: warm ivory ticks, brighter as they approach the red zone
         for (int t = 0; t <= 12; ++t)
         {
-            const float a = minAngle + (maxAngle - minAngle) * (float) t / 12.0f;
+            const float frac = (float) t / 12.0f;
+            const float a = minAngle + (maxAngle - minAngle) * frac;
             const bool major = (t % 3 == 0);
             const auto p1 = pivot.getPointOnCircumference(needleLen, a);
             const auto p2 = pivot.getPointOnCircumference(needleLen - (major ? 6.0f : 3.2f), a);
-            g.setColour(Colour(0xff3b3024).withAlpha(major ? 0.85f : 0.5f));
+            const Colour tickColour = frac > 0.78f ? accent : ivory;
+            g.setColour(tickColour.withAlpha((major ? 0.85f : 0.45f) * (0.55f + 0.45f * glow01)));
             g.drawLine({ p1, p2 }, major ? 1.5f : 0.9f);
         }
 
-        // red zone wedge
+        // red zone wedge, glowing
         {
             Path red;
             const float a0 = minAngle + (maxAngle - minAngle) * 0.78f;
             red.addCentredArc(pivot.x, pivot.y, needleLen + 1.5f, needleLen + 1.5f, 0.0f, a0, maxAngle, true);
-            g.setColour(accent.darker(0.1f));
-            g.strokePath(red, PathStrokeType(2.6f, PathStrokeType::curved, PathStrokeType::butt));
+            g.setColour(accent.withAlpha(0.30f + 0.35f * glow01));
+            g.strokePath(red, PathStrokeType(4.6f, PathStrokeType::curved, PathStrokeType::butt));
+            g.setColour(accent);
+            g.strokePath(red, PathStrokeType(2.2f, PathStrokeType::curved, PathStrokeType::butt));
         }
 
-        g.setColour(Colour(0xff3b3024).withAlpha(0.75f));
+        g.setColour(ivory.withAlpha(0.35f + 0.30f * glow01));
         g.setFont(labelFont(9.0f));
         g.drawText("VU", face.withTrimmedBottom(face.getHeight() * 0.30f), Justification::centred, false);
 
-        // needle with shadow
+        // needle: pink bloom trail under an ivory blade
         const float needleAngle = minAngle + (maxAngle - minAngle) * jlimit(0.0f, 1.0f, value01);
-        g.setColour(Colours::black.withAlpha(0.30f));
+        const auto tip = pivot.getPointOnCircumference(needleLen - 2.0f, needleAngle);
+        g.setColour(accent.withAlpha(0.20f + 0.30f * glow01));
+        g.drawLine(Line<float>(pivot, tip), 4.6f);
+        g.setColour(Colours::black.withAlpha(0.35f));
         g.drawLine(Line<float>(pivot.translated(0.8f, 1.2f),
                                pivot.translated(0.8f, 1.2f).getPointOnCircumference(needleLen - 2.0f, needleAngle)), 1.8f);
-        g.setColour(Colour(0xff26201a));
-        g.drawLine(Line<float>(pivot, pivot.getPointOnCircumference(needleLen - 2.0f, needleAngle)), 1.6f);
+        g.setColour(ivory);
+        g.drawLine(Line<float>(pivot, tip), 1.6f);
+        g.setColour(Colours::white.withAlpha(0.7f));
+        g.fillEllipse(tip.x - 1.4f, tip.y - 1.4f, 2.8f, 2.8f);
 
         // pivot boss
         ColourGradient boss(Colour(0xff6d6d72), pivot.x, pivot.y - 4.0f, Colour(0xff222226), pivot.x, pivot.y + 4.0f, false);
         g.setGradientFill(boss);
         g.fillEllipse(pivot.x - 4.0f, pivot.y - 4.0f, 8.0f, 8.0f);
+        g.setColour(accent.withAlpha(0.5f));
+        g.drawEllipse(pivot.x - 4.0f, pivot.y - 4.0f, 8.0f, 8.0f, 0.8f);
 
         // glass: diagonal highlight
         {
             Graphics::ScopedSaveState save(g);
             Path clip; clip.addRoundedRectangle(face, 6.0f);
             g.reduceClipRegion(clip);
-            ColourGradient glass(Colours::white.withAlpha(0.16f), face.getX(), face.getY(),
+            ColourGradient glass(Colours::white.withAlpha(0.10f), face.getX(), face.getY(),
                                  Colours::transparentWhite, face.getX() + face.getWidth() * 0.55f,
                                  face.getY() + face.getHeight() * 0.7f, false);
             g.setGradientFill(glass);

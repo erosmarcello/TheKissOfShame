@@ -19,6 +19,18 @@ public:
     void setModernCross(bool cross)      { modernCross = cross; }
     void setExtremeVisual(bool extreme)  { extremeVisual = extreme; repaint(); }
 
+    // Audio-reactive halo for the cross: the logo breathes with the program.
+    void setGlowLevel(float level01)
+    {
+        level01 = jlimit(0.0f, 1.0f, level01);
+        if (std::abs(level01 - glowLevel) > 0.015f)
+        {
+            glowLevel = level01;
+            if (era == UIEra::modern && modernCross)
+                repaint();
+        }
+    }
+
     void paint(Graphics& g) override;
     void mouseDoubleClick(const MouseEvent& event) override;
     void mouseEnter(const MouseEvent& event) override;
@@ -37,6 +49,7 @@ private:
     bool modernCross = false;
     bool extremeVisual = false;
     bool hovering = false;
+    float glowLevel = 0.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CustomKnob)
 };

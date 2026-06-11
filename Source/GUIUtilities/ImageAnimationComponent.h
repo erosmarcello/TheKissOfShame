@@ -37,8 +37,12 @@ public:
     //==========================================================================
     void setFramesPerSecond(int fps)
     {
-        if (fps > 0)
+        spinning = fps > 0;
+
+        if (spinning)
             startTimerHz(fps);
+        else if (era == UIEra::modern)
+            startTimerHz(20); // idle shimmer keeps the modern bay alive
         else
             stopTimer();
     }
@@ -77,6 +81,12 @@ public:
     void setEra(UIEra newEra)
     {
         era = newEra;
+
+        if (era == UIEra::modern && ! spinning)
+            startTimerHz(20);
+        else if (era == UIEra::heritage && ! spinning)
+            stopTimer();
+
         repaint();
     }
 
@@ -153,6 +163,17 @@ private:
             g.setColour(Colours::white.withAlpha(0.10f));
             g.drawLine(leftHub.x, tapeY - 2.5f, rightHub.x, tapeY - 2.5f, 0.8f);
 
+            // a glint travels down the tape while the transport runs
+            if (spinning)
+            {
+                const float span = rightHub.x - leftHub.x;
+                const float gx = leftHub.x + std::fmod(shimmerPhase / MathConstants<float>::twoPi, 1.0f) * span;
+                ColourGradient glint(Colours::white.withAlpha(0.30f), gx, tapeY,
+                                     Colours::transparentWhite, gx + 34.0f, tapeY, true);
+                g.setGradientFill(glint);
+                g.fillRect(gx - 34.0f, tapeY - 2.5f, 68.0f, 5.0f);
+            }
+
             // guide rollers
             for (float gx : { leftHub.x + radius * 0.55f, rightHub.x - radius * 0.55f })
             {
@@ -190,8 +211,26 @@ private:
         ModernTheme::drawReel(g, leftHub, radius, angle);
         ModernTheme::drawReel(g, rightHub, radius, -angle);
 
-        // pink ember rising from the deck below — the machine is alive
-        ColourGradient ember(ModernTheme::accent.withAlpha(hovering ? 0.14f : 0.08f),
+        // drifting sheen across each tape pack — light moving on a surface
+        for (const auto& hub : { leftHub, rightHub })
+        {
+            Graphics::ScopedSaveState save(g);
+            const float packR = radius * 0.84f;
+            Path clip;
+            clip.addEllipse(hub.x - packR, hub.y - packR, packR * 2, packR * 2);
+            g.reduceClipRegion(clip);
+
+            const float drift = std::sin(shimmerPhase) * packR * 0.45f;
+            ColourGradient sheen(Colours::white.withAlpha(0.05f), hub.x + drift, hub.y - packR,
+                                 Colours::transparentWhite, hub.x + drift, hub.y + packR * 0.1f, false);
+            g.setGradientFill(sheen);
+            g.fillRect(hub.x - packR, hub.y - packR, packR * 2, packR * 1.1f);
+        }
+
+        // pink ember rising from the deck below — the machine is alive,
+        // breathing slowly even at rest
+        const float breath = 0.5f + 0.5f * std::sin(shimmerPhase * 0.5f);
+        ColourGradient ember(ModernTheme::accent.withAlpha((hovering ? 0.13f : 0.07f) + 0.05f * breath),
                              r.getCentreX(), r.getBottom() + 30.0f,
                              ModernTheme::accent.withAlpha(0.0f), r.getCentreX(), r.getBottom() - 90.0f, true);
         g.setGradientFill(ember);
@@ -208,27 +247,36 @@ private:
 
     void timerCallback() override
     {
-        // The increment/threshold gate slows the reels while they're being
-        // touched — preserved from the original update() logic.
-        if (curIncrement == 0.0f)
+        if (spinning)
         {
-            if (! animationImage.isNull())
+            // The increment/threshold gate slows the reels while they're
+            // being touched — preserved from the original update() logic.
+            if (curIncrement == 0.0f)
             {
-                if (currentFrame >= endFrame)
-                    currentFrame = startFrame;
-                ++currentFrame;
+                if (! animationImage.isNull())
+                {
+                    if (currentFrame >= endFrame)
+                        currentFrame = startFrame;
+                    ++currentFrame;
+                }
             }
+
+            curIncrement += incrRate;
+            if (curIncrement >= resetThresh)
+                curIncrement = 0.0f;
         }
 
-        curIncrement += incrRate;
-        if (curIncrement >= resetThresh)
-            curIncrement = 0.0f;
+        shimmerPhase += spinning ? 0.11f : 0.035f;
+        if (shimmerPhase > MathConstants<float>::twoPi)
+            shimmerPhase -= MathConstants<float>::twoPi;
 
         repaint();
     }
 
     UIEra era = UIEra::heritage;
     bool hovering = false;
+    bool spinning = false;
+    float shimmerPhase = 0.0f;
 
     float resetThresh = 1.0f;
     float curIncrement = 0.0f;

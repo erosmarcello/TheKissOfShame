@@ -383,6 +383,11 @@ void KissOfShameAudioProcessorEditor::timerCallback()
     vuMeterL.updateImageWithValue(vuLevelL);
     vuMeterR.updateImageWithValue(vuLevelR);
 
+    // The light follows the program: backlight ember and the cross's halo.
+    const float programGlow = jlimit(0.0f, 1.0f, 0.5f * (vuLevelL + vuLevelR));
+    backlight.setAudioLevel(programGlow);
+    shameKnob.setGlowLevel(programGlow);
+
     // Reels spin only while the host transport runs and audio is flowing.
     const int blockCount = processor.getBlockCounter();
     if (processor.isTransportPlaying() && blockCount != priorBlockCount && ! processor.isGraphBypassed())
@@ -478,6 +483,18 @@ void KissOfShameAudioProcessorEditor::paintModernPanel(Graphics& g)
     g.drawVerticalLine((int) (deck.getX() + 233.0f), deck.getY() + 46.0f, deck.getBottom() - 24.0f);
     g.drawVerticalLine((int) (deck.getRight() - 231.0f), deck.getY() + 46.0f, deck.getBottom() - 24.0f);
 
+    // recessed seats: every control sits IN the panel
+    drawRoundWell(g, inputSaturationKnob.getBounds().toFloat().reduced(6.0f));
+    drawRoundWell(g, outputKnob.getBounds().toFloat().reduced(6.0f));
+    drawRoundWell(g, ageKnob.getBounds().toFloat().reduced(2.0f));
+    drawRoundWell(g, hissKnob.getBounds().toFloat().reduced(2.0f));
+    drawRoundWell(g, blendKnob.getBounds().toFloat().reduced(2.0f));
+    drawRoundWell(g, shameKnob.getBounds().toFloat().expanded(6.0f));
+    drawRectWell(g, vuMeterL.getBounds().toFloat().expanded(2.0f), 10.0f);
+    drawRectWell(g, vuMeterR.getBounds().toFloat().expanded(2.0f), 10.0f);
+    drawRectWell(g, environmentsComponent.getBounds().toFloat().expanded(3.0f, 2.0f), 16.0f);
+    drawRectWell(g, eraSwitch.getBounds().toFloat().expanded(2.0f), 15.0f);
+
     // wordmark, led by the Infernal Love mark
     auto header = deck.withHeight(30.0f).reduced(14.0f, 5.0f);
     auto markArea = header.removeFromLeft(13.0f).reduced(0.0f, 1.0f);
@@ -493,14 +510,16 @@ void KissOfShameAudioProcessorEditor::paintModernPanel(Graphics& g)
     g.drawText("REV 2", deck.withHeight(30.0f).reduced(14.0f, 6.0f),
                Justification::centredRight, false);
 
-    // control captions, anchored to the live component positions so they
-    // follow the collapsible layout
+    // control captions, engraved (shadow under light) and anchored to the
+    // live component positions so they follow the collapsible layout
     auto caption = [&g](const Component& c, const String& text)
     {
-        g.setColour(ModernTheme::textDim);
         g.setFont(ModernTheme::labelFont(10.0f));
-        g.drawText(text,
-                   c.getX() - 10, c.getBottom() + 2, c.getWidth() + 20, 14,
+        g.setColour(Colours::black.withAlpha(0.6f));
+        g.drawText(text, c.getX() - 10, c.getBottom() + 3, c.getWidth() + 20, 14,
+                   Justification::centred, false);
+        g.setColour(ModernTheme::textDim);
+        g.drawText(text, c.getX() - 10, c.getBottom() + 2, c.getWidth() + 20, 14,
                    Justification::centred, false);
     };
 

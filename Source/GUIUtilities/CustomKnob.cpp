@@ -60,8 +60,11 @@ void CustomKnob::paint(Graphics& g)
 
             ModernTheme::dropShadowEllipse(g, bounds.reduced(bounds.getWidth() * 0.10f), 0.6f);
 
-            // ambient halo behind the artwork — stronger on hover, hot in Extreme
-            ColourGradient halo(glowColour.withAlpha(extremeVisual ? 0.45f : (hovering ? 0.26f : 0.18f)),
+            // ambient halo behind the artwork — swells with the program
+            // audio, stronger on hover, hot in Extreme
+            const float haloAlpha = (extremeVisual ? 0.40f : (hovering ? 0.24f : 0.15f))
+                                  + 0.24f * glowLevel;
+            ColourGradient halo(glowColour.withAlpha(haloAlpha),
                                 centre.x, centre.y,
                                 glowColour.withAlpha(0.0f), centre.x, bounds.getY() - 8.0f, true);
             g.setGradientFill(halo);
