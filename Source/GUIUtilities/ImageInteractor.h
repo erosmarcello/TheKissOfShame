@@ -1,92 +1,53 @@
-
-
-#ifndef KOS_ImageInteractor_h
-#define KOS_ImageInteractor_h
+#pragma once
 
 #include "../shameConfig.h"
 
-
+// Value-driven filmstrip display (VU meters, shame ring, face background).
+// Rev 2: images come from BinaryData.
 class ImageInteractor : public Component
 {
 public:
     ImageInteractor();
-    ~ImageInteractor();
-    
-//    virtual void changeListenerCallback (ChangeBroadcaster* source)
-//    {
-//        
-//    };
-    
-    void paint (Graphics& g);
-    
+    ~ImageInteractor() override = default;
+
+    void paint(Graphics& g) override;
+
     void updateImageWithValue(float value)
     {
-        if(value > maxValue)
-        {
-            curValue = maxValue;
-        }
-        else if(value < minValue)
-        {
-            curValue = minValue;
-        }
-        else
-        {
-            curValue = value;
-        }
-        
+        setCurrentValue(value);
         repaint();
-        
-        
     }
-    
+
     void setCurrentValue(float value)
     {
-        if(value > maxValue)        curValue = maxValue;
-        else if(value < minValue)   curValue = minValue;
-        else                        curValue = value;
+        curValue = jlimit(minValue, maxValue, value);
     }
-    
+
     void setMinMaxValues(float min, float max)
     {
         minValue = min;
         maxValue = max;
     }
-    
-    void setDesaturate(bool _desaturate)
+
+    void setDesaturate(bool shouldDesaturate)
     {
-        desaturate = _desaturate;
-        
-        if(desaturate)
-        {
-            image = desatImage;
-        }
-        else
-        {
-            image = satImage;
-        }
-        
+        desaturate = shouldDesaturate;
         repaint();
     }
-    
+
     void setNumFrames(int numFrames);
-    void setAnimationImage(String filePath);
+    void setAnimationImage(const Image& newImage);
     void setDimensions(int topLeftX, int topLeftY, int w, int h);
 
 private:
-    
-    bool desaturate;
-    String imagePath;
-	Image image;
+    bool desaturate = false;
     Image satImage;
     Image desatImage;
-    int frameWidth;
-    int frameHeight;
-    int numFrames;
-    
-    float maxValue, minValue, curValue;
-    
-    
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ImageInteractor)
-};
+    int frameWidth = 0;
+    int frameHeight = 0;
+    int numFrames = 128;
 
-#endif
+    float maxValue = 1.0f, minValue = 0.0f, curValue = 0.0f;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ImageInteractor)
+};

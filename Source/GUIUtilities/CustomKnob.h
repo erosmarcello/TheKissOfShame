@@ -1,34 +1,31 @@
+#pragma once
 
+#include "../shameConfig.h"
 
-#ifndef KOS_CustomKnob_h
-#define KOS_CustomKnob_h
-
-#include "../JuceLibraryCode/JuceHeader.h"
-
-
-
+// Filmstrip rotary knob. Rev 2: images come from BinaryData (no file
+// paths), and a double-click hook is exposed — the Shame knob uses it to
+// enter Extreme mode.
 class CustomKnob : public Slider
 {
 public:
     CustomKnob();
-    ~CustomKnob();
-    
-    void setNumFrames(int numFrames);
-    void setKnobImage(String filePath);
-    void setKnobDimensions(int topLeftX, int topLeftY, int w, int h);
-    
-    void paint (Graphics& g);
-        
-private:
-    
-    String knobImagePath;
-    int knobNumFrames;
-    
-	Image knobImage;
-    int knobFrameWidth;
-    int knobFrameHeight;
-    
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (CustomKnob)
-};
+    ~CustomKnob() override = default;
 
-#endif
+    void setNumFrames(int numFrames);
+    void setKnobImage(const Image& image);
+    void setKnobDimensions(int topLeftX, int topLeftY, int w, int h);
+
+    void paint(Graphics& g) override;
+    void mouseDoubleClick(const MouseEvent& event) override;
+
+    std::function<void()> onDoubleClick;
+
+private:
+    int knobNumFrames = 128;
+
+    Image knobImage;
+    int knobFrameWidth = 0;
+    int knobFrameHeight = 0;
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CustomKnob)
+};

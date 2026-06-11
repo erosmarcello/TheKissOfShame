@@ -48,31 +48,27 @@ canonical state format from day one.
 
 **Goal: a green CI badge before any feature work.**
 
-- [ ] **Complete the JUCE port** — target current JUCE (8.x), not 7. Replace
-      JUCE 3.1 idioms: `ScopedPointer` → `std::unique_ptr`,
-      `AnimatedAppComponent` → `Timer`/`VBlankAttachment`,
-      `SliderListener` → `Slider::Listener` / APVTS attachments.
-- [ ] **CMake as the build system of record** (`juce_add_plugin`), keeping the
-      `.jucer` only if useful for reference. Formats: **AU + VST3** on macOS,
-      **VST3** on Windows, **VST3/LV2** on Linux. Standalone app for all.
-- [ ] **Embed all resources as BinaryData** (`juce_add_binary_data`) —
-      `GUI_Resources/` and `Audio_Resources/` — eliminating the hard-coded
-      paths in `shameConfig.h` entirely.
-- [ ] **Migrate parameters to `AudioProcessorValueTreeState`** with stable
-      string parameter IDs (`saturation`, `shame`, `hiss`, `age`, `blend`,
-      `output`, `tapeType`, `printThrough`, `environment`, `bypass`, `linkIO`).
-      This buys automation, state save/restore, and thread-safe GUI binding in
-      one move.
-- [ ] **Sample-rate independence.** Remove `SAMPLE_RATE 44100`; derive all
-      buffer sizes and modulation rates from `prepareToPlay()`. Resample the
-      hiss/noise WAV assets at load time. Audit `Shame.h` (44100-sample
-      circular buffer = exactly 1s) and `Flange.h` for rate assumptions.
-- [ ] **CI: GitHub Actions** matrix build (macOS arm64+x86_64, Windows, Linux)
-      plus **pluginval** at max strictness as the merge gate.
-- [ ] **Golden-reference audio tests.** Before refactoring DSP internals,
-      render a known test signal through the current algorithms at 44.1 kHz
-      and store the output. Refactors must null (or diff within tolerance)
-      against the reference, so modernization never silently changes the sound.
+- [x] **Complete the JUCE port** — done against JUCE **8.0.9**. All JUCE 3.1
+      idioms replaced: `ScopedPointer` → values/`std::unique_ptr`,
+      `AnimatedAppComponent`+OpenGL → plain `Timer` component,
+      `SliderListener`/`ActionBroadcaster` → lambdas + APVTS attachments.
+- [x] **CMake as the build system of record** (`juce_add_plugin`); legacy
+      `JuceLibraryCode/` and `Builds/` removed. Formats: AU + VST3 + Standalone.
+- [x] **Embed all resources as BinaryData** — done; `shameConfig.h` no longer
+      contains a single path. Only the 3 runtime WAVs ship (the dev test tones
+      stay out of the binary).
+- [x] **Migrate parameters to `AudioProcessorValueTreeState`** — done with
+      versioned IDs; bypass exposed via `getBypassParameter()`. linkIO remains
+      GUI-only behavior, exactly as Rev 1 intended.
+- [x] **Sample-rate independence** — `SAMPLE_RATE`/`BUFFER_SIZE` macros gone;
+      every module takes the rate in `prepare()`; hiss/noise beds are
+      resampled at load; Shame's tape loop is one second at any rate.
+- [x] **CI: GitHub Actions** matrix build (macOS, Windows, Linux) with the
+      smoke tests as gate. *(pluginval step: still to add.)*
+- [x] **Offline audio smoke tests** (`Tests/SmokeTest.cpp`): pass-through,
+      Shame/Extreme, all six environment positions, state round-trip — run via
+      `ctest`. *(Golden-reference renders for regression-pinning the Rev 2
+      sound: still to add once voicings are approved.)*
 
 ## Phase 1 — DSP: complete the original promises
 
@@ -81,23 +77,35 @@ canonical state format from day one.
 Signal flow stays as designed (`Source/AudioProcessing/AudioGraph.h`):
 `InputSaturation → Flange (reels) → Environment → Hiss → Shame → Blend → Output`.
 
-- [ ] **Implement the three missing environments** — Studio Closet, Humid
-      Cellar, Hot Locker — using the Hurricane Sandy module
-      (granulation + envelope dips + noise bursts + filtering) as the
-      template. Each gets a distinct sonic fingerprint: closet = mild
-      oxidation/dropouts, cellar = humidity-driven HF loss + sticky-shed
-      artifacts, locker = heat-warped pitch instability + print-through
-      exaggeration.
+- [x] **All environments implemented, ground-up** (`Environments.h`): a common
+      `EnvironmentFX` base with Environs (generic shelf wear), Studio Closet
+      (oxidation, dropouts, crackle), Humid Cellar (sticky-shed muffling,
+      undulation, damp rumble), Hot Locker (slow wow, sagging level,
+      exaggerated print-through) and Hurricane Sandy (original 2014 recipe,
+      with its uninitialized burst-level bug fixed). AGE drives them all.
+- [x] **Finished the unfinished front panel:** tape-type button now voices
+      saturation + hiss floor (S-111 vs A-456); PRINT THRU is a real
+      lowpassed post-echo stage (`PrintThrough.h`); AGE actually does
+      something. The Rev 1 crash class (missing-WAV divide-by-zero in
+      Hiss/LoopCrossfade) is gone.
+- [x] **Shame EXTREME** — double-click the Shame knob: the macro mapping runs
+       past its stops (2.5× depth, faster/looser modulation) plus a
+      scrape-flutter component. Recallable state property, not a parameter.
 - [ ] **Oversample the saturation stage** (`juce::dsp::Oversampling`, 2–4×)
       to tame aliasing from the `tanh` waveshapers, preserving the dual-path
       odd/even harmonic structure and the 4 kHz rolloff character. Report
       latency to the host.
-- [ ] **Fix the Biquads coefficient validation** flagged in `Biquads.h`.
-- [ ] **Denormal protection** (`ScopedNoDenormals`) and parameter smoothing
-      (`SmoothedValue`) on every audible control — no zipper noise.
-- [ ] **Click-free bypass** (short crossfade) replacing the hard toggle.
-- [ ] **Fix the playhead bug** noted at `PluginEditor.cpp:287`.
-- [ ] **Channel-config sanity:** explicit mono and stereo support.
+- [x] **Fix the Biquads coefficient validation** flagged in `Biquads.h` —
+      all designs clamp fc into (10 Hz, 0.49·fs).
+- [x] **Denormal protection** (`ScopedNoDenormals`) in processBlock; bypass
+      and print-through levels smoothed. *(Per-knob `SmoothedValue` zipper
+      pass: still to do.)*
+- [x] **Click-free bypass** — 50 ms crossfade back to the untouched input,
+      then true zero-work bypass.
+- [x] **Playhead handling rebuilt** on the modern `getPosition()` API with
+      atomics; the Rev 1 gating bug is moot.
+- [x] **Channel-config sanity:** explicit mono and stereo layouts, channel
+      clamps in every module (Rev 1 read channel 1 unconditionally).
 
 Deliberately **out of scope** (parameter-bloat guard): tape speed selection,
 bias/EQ-curve menus, multi-machine modeling. Rev 2 deepens the existing seven

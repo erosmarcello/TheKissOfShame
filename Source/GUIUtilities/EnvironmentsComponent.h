@@ -1,86 +1,44 @@
-
-
-#ifndef KOS_EnvironmentsComponent_h
-#define KOS_EnvironmentsComponent_h
+#pragma once
 
 #include "ImageInteractor.h"
-#include "../shameConfig.h"
-#include "../PluginProcessor.h"
 
-
-
-class EnvironmentsComponent : public ImageInteractor, public MouseListener
+// The storage-environment selector strip. Rev 2: decoupled from the
+// processor — it reports clicks through onEnvironmentChanged and is told
+// what to display via setDisplayedEnvironment, so the parameter system
+// remains the single source of truth (and host automation moves the strip).
+class EnvironmentsComponent : public ImageInteractor
 {
 public:
-    
-    EnvironmentsComponent(KissOfShameAudioProcessor& p) : imageIncr(0), curEnvironment(eEnvironmentOff), processor(p)
+    EnvironmentsComponent()
     {
         setNumFrames(6);
         setMinMaxValues(0, 5);
-        
-        String environmentsImageLocation = GUI_PATH + "KOS_Graphics/00.png";
-        setAnimationImage(environmentsImageLocation);
-        
         setDimensions(0, 0, 183, 32);
-        setSize(183, 32);
-    };
-    
-    ~EnvironmentsComponent(){};
-    
-    
-    
-    void setCurrentEnvironment(int index)
-    {
-        switch (index)
-        {
-            case 0:
-                curEnvironment = eEnvironmentOff;
-                break;
-            case 1:
-                curEnvironment = eEnvironmentEnvironment;
-                break;
-            case 2:
-                curEnvironment = eEnvironmentStudioCloset;
-                break;
-            case 3:
-                curEnvironment = eEnvironmentHumidCellar;
-                break;
-            case 4:
-                curEnvironment = eEnvironmentHotLocker;
-                break;
-            case 5:
-                curEnvironment = eEnvironmentHurricaneSandy;
-                break;
-                
-            default:
-                break;
-        }
-        
-        processor.aGraph->setCurrentEnvironment(curEnvironment);
     }
-        
-    
-    virtual void mouseUp (const MouseEvent& event)
+
+    ~EnvironmentsComponent() override = default;
+
+    void setDisplayedEnvironment(int index)
     {
-        imageIncr = (imageIncr + 1) % 6;
-        updateImageWithValue(imageIncr);
-        
-        
-        setCurrentEnvironment(imageIncr);
+        currentIndex = jlimit(0, 5, index);
+        updateImageWithValue((float) currentIndex);
     }
-    
-    virtual void mouseDrag(const MouseEvent& event){}
-    
+
+    void mouseUp(const MouseEvent& event) override
+    {
+        ignoreUnused(event);
+
+        const int next = (currentIndex + 1) % 6;
+        setDisplayedEnvironment(next);
+
+        if (onEnvironmentChanged != nullptr)
+            onEnvironmentChanged(next);
+    }
+
+    std::function<void(int)> onEnvironmentChanged;
+
 private:
-    
-    int imageIncr;
-    EShameEnvironments curEnvironment;
-    
-    KissOfShameAudioProcessor& processor;
+    int currentIndex = 0;
 
-    
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EnvironmentsComponent)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(EnvironmentsComponent)
 };
-
-
-#endif
