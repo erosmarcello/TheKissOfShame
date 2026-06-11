@@ -1,7 +1,11 @@
 name: Build
 
+# push is scoped to the default branch: feature-branch pushes are already
+# covered by the pull_request trigger, and double-running every push wastes
+# minutes and doubles CI noise.
 on:
   push:
+    branches: [master, main]
   pull_request:
   workflow_dispatch:
 
