@@ -92,6 +92,16 @@ KissOfShameAudioProcessorEditor::KissOfShameAudioProcessorEditor(KissOfShameAudi
     };
     content.addAndMakeVisible(bypassButton);
 
+    // The lost lever: 02.png, specified at (232, 502) in positions.rtf but
+    // never wired into Rev 1. Two frames — lever up (signal flowing) and
+    // lever thrown (bypassed). The lamp shows the state; this throws it.
+    const auto leverImage = getImage(BinaryData::_02_png, BinaryData::_02_pngSize);
+    bypassLever.setTopLeftPosition(232, 502);
+    bypassLever.setClippedCustomOnImage(leverImage, 0, 0, 44, 37);
+    bypassLever.setClippedCustomOffImage(leverImage, 0, 37, 44, 37);
+    bypassLever.setClickingTogglesState(true);
+    content.addAndMakeVisible(bypassLever);
+
     const auto tapeTypeImage = getImage(BinaryData::_07_png, BinaryData::_07_pngSize);
     tapeTypeButton.setTopLeftPosition(233, 610);
     tapeTypeButton.setClippedCustomOnImage(tapeTypeImage, 0, 0, 42, 39);
@@ -169,6 +179,7 @@ KissOfShameAudioProcessorEditor::KissOfShameAudioProcessorEditor(KissOfShameAudi
     ageAttachment    = std::make_unique<SliderAttachment>(apvts, ParamIDs::age, ageKnob);
 
     bypassAttachment       = std::make_unique<ButtonAttachment>(apvts, ParamIDs::bypass, bypassButton);
+    bypassLeverAttachment  = std::make_unique<ButtonAttachment>(apvts, ParamIDs::bypass, bypassLever);
     tapeTypeAttachment     = std::make_unique<ButtonAttachment>(apvts, ParamIDs::tapeType, tapeTypeButton);
     printThroughAttachment = std::make_unique<ButtonAttachment>(apvts, ParamIDs::printThrough, printThroughButton);
 
@@ -197,16 +208,9 @@ KissOfShameAudioProcessorEditor::KissOfShameAudioProcessorEditor(KissOfShameAudi
     { environmentsComponent.setAgeAmount((float) ageKnob.getValue()); };
     environmentsComponent.setAgeAmount((float) ageKnob.getValue());
 
-    ///////////////// The Era Switch //////////////////
-
-    eraSwitch.setBounds(862, 656, 84, 30);
-    eraSwitch.onEraToggled = [this]
-    { applyEra(era == UIEra::heritage ? UIEra::modern : UIEra::heritage, true); };
-    content.addAndMakeVisible(eraSwitch);
-
-    // The status spine retired with the flat design; the component stays
-    // dormant for now.
-    statusBar.setVisible(false);
+    // The era experiment is retired: the original 2014 faceplate is the
+    // interface. (The switch component stays in the codebase, un-added.)
+    eraSwitch.onEraToggled = nullptr;
 
     shameKnob.setModernCross(true);
     bypassButton.setModernStyle(CustomButton::ModernStyle::lampKnob);
@@ -241,7 +245,7 @@ KissOfShameAudioProcessorEditor::KissOfShameAudioProcessorEditor(KissOfShameAudi
     }
 
     setResizable(true, true);
-    applyEra(processor.getUIEra() == "modern" ? UIEra::modern : UIEra::heritage, false);
+    applyEra(UIEra::heritage, false); // the original UI, always
 
     constructionComplete = true;
     startTimer(25);
@@ -343,6 +347,7 @@ void KissOfShameAudioProcessorEditor::positionEraDependentControls()
         const int dy = showReels ? 0 : -322;
 
         bypassButton.setBounds(44, 348 + dy, 48, 58);
+        bypassLever.setVisible(false);
         ageKnob.setBounds(280, 348 + dy, 66, 66);
         hissKnob.setBounds(606, 348 + dy, 66, 66);
         blendKnob.setBounds(712, 348 + dy, 66, 66);
@@ -368,6 +373,8 @@ void KissOfShameAudioProcessorEditor::positionEraDependentControls()
         const int dy = showReels ? 0 : -437;
 
         bypassButton.setBounds(202, 469 + dy, 34, 34);
+        bypassLever.setBounds(232, 502 + dy, 44, 37);
+        bypassLever.setVisible(true);
         ageKnob.setBounds(350, 455 + dy, 74, 72);
         hissKnob.setBounds(547, 455 + dy, 78, 72);
         blendKnob.setBounds(705, 455 + dy, 78, 72);

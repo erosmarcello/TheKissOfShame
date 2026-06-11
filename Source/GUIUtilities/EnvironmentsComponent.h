@@ -49,7 +49,7 @@ public:
         setMinMaxValues(0, 5);
         setDimensions(0, 0, 183, 32);
         setMouseCursor(MouseCursor::PointingHandCursor);
-        setTooltip("Storage environment - click to choose, scroll to step. AGE sets how long the reel suffered there.");
+        setTooltip("Storage environment - click to cycle, scroll to step. AGE sets how long the reel suffered there.");
     }
 
     ~EnvironmentsComponent() override = default;
@@ -58,8 +58,9 @@ public:
     void setDisplayedEnvironment(int index)
     {
         currentIndex = jlimit(0, numEnvironments - 1, index);
-        // filmstrip frames: 0=Off, 1=retired, 2..5 = the four environments
-        updateImageWithValue((float) (currentIndex == 0 ? 0 : currentIndex + 1));
+        // 00.png frames: 0 = "ENVIRONMENT" header, 1 = "---OFF---",
+        // 2..5 = the four storage environments.
+        updateImageWithValue((float) (currentIndex + 1));
     }
 
     int getCurrentIndex() const { return currentIndex; }
@@ -82,25 +83,9 @@ public:
 
     void mouseUp(const MouseEvent& event) override
     {
-        if (! event.mouseWasClicked() || ! getLocalBounds().contains(event.getPosition()))
-            return;
-
-        if (getEra() == UIEra::modern)
-        {
-            const int x = event.getPosition().x;
-            if (x < getWidth() / 5)
-            {
-                select((currentIndex - 1 + numEnvironments) % numEnvironments);
-                return;
-            }
-            if (x > getWidth() * 4 / 5)
-            {
-                select((currentIndex + 1) % numEnvironments);
-                return;
-            }
-        }
-
-        showPicker();
+        // The original interaction: click cycles the LED strip.
+        if (event.mouseWasClicked() && getLocalBounds().contains(event.getPosition()))
+            select((currentIndex + 1) % numEnvironments);
     }
 
     void mouseWheelMove(const MouseEvent&, const MouseWheelDetails& wheel) override

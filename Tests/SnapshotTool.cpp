@@ -43,7 +43,7 @@ int main(int argc, char** argv)
     pose(ParamIDs::age, 0.45f);
     pose(ParamIDs::environment, 4.0f);
 
-    for (auto* eraName : { "heritage", "modern" })
+    for (auto* eraName : { "heritage" })
     {
         kos.setUIEra(eraName);
 

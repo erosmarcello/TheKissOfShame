@@ -55,6 +55,7 @@ juce_add_binary_data(KissOfShameAssets
     SOURCES
         GUI_Resources/KOS_Graphics/00.png
         GUI_Resources/KOS_Graphics/01.png
+        GUI_Resources/KOS_Graphics/02.png
         GUI_Resources/KOS_Graphics/03_alpha.png
         GUI_Resources/KOS_Graphics/04_alpha.png
         GUI_Resources/KOS_Graphics/05_alpha.png

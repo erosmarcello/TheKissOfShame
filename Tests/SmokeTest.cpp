@@ -122,7 +122,7 @@ int main()
         auto& kos = dynamic_cast<KissOfShameAudioProcessor&>(*proc);
         auto* shame = kos.apvts.getParameter(ParamIDs::shame);
 
-        for (auto eraName : { "heritage", "modern" })
+        for (auto eraName : { "heritage" })
         {
             kos.setUIEra(eraName);
 

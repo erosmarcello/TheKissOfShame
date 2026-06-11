@@ -125,7 +125,7 @@ private:
     EnvironmentsComponent environmentsComponent;
 
     CustomKnob inputSaturationKnob, shameKnob, hissKnob, blendKnob, outputKnob, ageKnob;
-    CustomButton bypassButton, tapeTypeButton, printThroughButton, linkIOButtonL, linkIOButtonR;
+    CustomButton bypassButton, bypassLever, tapeTypeButton, printThroughButton, linkIOButtonL, linkIOButtonR;
 
     std::unique_ptr<ImageAnimationComponent> reelAnimation;
     ImageInteractor vuMeterL, vuMeterR, shameKnobImage;
@@ -145,7 +145,8 @@ private:
 
     std::unique_ptr<SliderAttachment> inputAttachment, shameAttachment, hissAttachment,
                                       blendAttachment, outputAttachment, ageAttachment;
-    std::unique_ptr<ButtonAttachment> bypassAttachment, tapeTypeAttachment, printThroughAttachment;
+    std::unique_ptr<ButtonAttachment> bypassAttachment, bypassLeverAttachment,
+                                      tapeTypeAttachment, printThroughAttachment;
     std::unique_ptr<ParameterAttachment> flangeAttachment, environmentAttachment;
 
     //==========================================================================
