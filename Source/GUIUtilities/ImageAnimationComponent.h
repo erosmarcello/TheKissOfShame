@@ -151,10 +151,10 @@ private:
         // counter so transport/drag behavior is identical in both eras.
         const float angle = (float) currentFrame * MathConstants<float>::twoPi / (float) jmax(1, animationNumFrames);
 
-        const Point<float> leftHub(r.getWidth() * 0.26f, r.getHeight() * 0.46f);
-        const Point<float> rightHub(r.getWidth() * 0.74f, r.getHeight() * 0.46f);
-        const float radius = r.getHeight() * 0.40f;
-        const float tapeY = leftHub.y + radius * 0.94f;
+        const Point<float> leftHub(r.getWidth() * 0.255f, r.getHeight() * 0.455f);
+        const Point<float> rightHub(r.getWidth() * 0.745f, r.getHeight() * 0.455f);
+        const float radius = r.getHeight() * 0.44f; // large-format 10.5" presence
+        const float tapeY = leftHub.y + radius * 0.96f;
 
         // tape path: dark band with a moving sheen, threaded under both reels
         {
@@ -208,23 +208,24 @@ private:
             ModernTheme::drawScrew(g, { head.getRight() - 6.0f, head.getBottom() - 6.0f }, 2.2f, 2.4f);
         }
 
-        ModernTheme::drawReel(g, leftHub, radius, angle);
-        ModernTheme::drawReel(g, rightHub, radius, -angle);
+        // supply reel runs full, take-up lean — a transport mid-spool
+        ModernTheme::drawReel(g, leftHub, radius, angle, 0.85f);
+        ModernTheme::drawReel(g, rightHub, radius, -angle, 0.48f);
 
-        // drifting sheen across each tape pack — light moving on a surface
+        // drifting sheen across each flange — light moving on machined metal
         for (const auto& hub : { leftHub, rightHub })
         {
             Graphics::ScopedSaveState save(g);
-            const float packR = radius * 0.84f;
+            const float faceR = radius * 0.97f;
             Path clip;
-            clip.addEllipse(hub.x - packR, hub.y - packR, packR * 2, packR * 2);
+            clip.addEllipse(hub.x - faceR, hub.y - faceR, faceR * 2, faceR * 2);
             g.reduceClipRegion(clip);
 
-            const float drift = std::sin(shimmerPhase) * packR * 0.45f;
-            ColourGradient sheen(Colours::white.withAlpha(0.05f), hub.x + drift, hub.y - packR,
-                                 Colours::transparentWhite, hub.x + drift, hub.y + packR * 0.1f, false);
+            const float drift = std::sin(shimmerPhase) * faceR * 0.45f;
+            ColourGradient sheen(Colours::white.withAlpha(0.045f), hub.x + drift, hub.y - faceR,
+                                 Colours::transparentWhite, hub.x + drift, hub.y + faceR * 0.1f, false);
             g.setGradientFill(sheen);
-            g.fillRect(hub.x - packR, hub.y - packR, packR * 2, packR * 1.1f);
+            g.fillRect(hub.x - faceR, hub.y - faceR, faceR * 2, faceR * 1.1f);
         }
 
         // pink ember rising from the deck below — the machine is alive,

@@ -407,78 +407,143 @@ namespace ModernTheme
     }
 
     //==========================================================================
-    inline void drawReel(Graphics& g, Point<float> centre, float radius, float angleRad)
+    // A large-format NAB reel — the 10.5" machined-aluminium flange of a
+    // Studer/Ampex transport, not a cassette hub: three wide kidney windows
+    // showing the tape pack behind, narrow spokes between them, and the
+    // trilobe NAB hub adapter at the centre. packAmount sets how much tape
+    // is wound on (supply reel runs fuller than take-up).
+    inline void drawReel(Graphics& g, Point<float> centre, float radius, float angleRad,
+                         float packAmount = 0.8f)
     {
+        const float R = radius;
+        auto discBounds = juce::Rectangle<float>(centre.x - R, centre.y - R, R * 2, R * 2);
+
         // floor shadow
-        dropShadowEllipse(g, { centre.x - radius, centre.y - radius, radius * 2, radius * 2 }, 0.7f);
+        dropShadowEllipse(g, discBounds, 0.7f);
 
-        // machined outer rim
-        ColourGradient rim(Colour(0xff3e3e44), centre.x, centre.y - radius,
-                           Colour(0xff101012), centre.x, centre.y + radius, false);
-        g.setGradientFill(rim);
-        g.fillEllipse(centre.x - radius, centre.y - radius, radius * 2, radius * 2);
-        g.setColour(Colours::white.withAlpha(0.12f));
-        g.drawEllipse(centre.x - radius, centre.y - radius + 0.5f, radius * 2, radius * 2, 1.2f);
-        g.setColour(Colours::black.withAlpha(0.6f));
-        g.drawEllipse(centre.x - radius, centre.y - radius, radius * 2, radius * 2, 1.0f);
+        // ------- behind the flange: backplate + wound tape pack
+        g.setColour(Colour(0xff070708));
+        g.fillEllipse(discBounds.reduced(R * 0.04f));
 
-        // tape pack with wind grooves
-        const float packR = radius * 0.84f;
-        ColourGradient pack(Colour(0xff141416), centre.x, centre.y - packR,
-                            Colour(0xff0a0a0b), centre.x, centre.y + packR, false);
+        const float packR = R * jmap(jlimit(0.0f, 1.0f, packAmount), 0.36f, 0.90f);
+        ColourGradient pack(Colour(0xff1b1410), centre.x, centre.y - packR,
+                            Colour(0xff0c0908), centre.x, centre.y + packR, false);
         g.setGradientFill(pack);
         g.fillEllipse(centre.x - packR, centre.y - packR, packR * 2, packR * 2);
 
-        for (int i = 1; i <= 5; ++i)
+        for (int i = 1; i <= 6; ++i)        // wind grooves
         {
-            const float gr = packR * (0.62f + 0.075f * (float) i);
-            g.setColour(Colours::white.withAlpha(0.030f + 0.006f * (float) i));
-            g.drawEllipse(centre.x - gr, centre.y - gr, gr * 2, gr * 2, 0.8f);
+            const float gr = packR * (0.42f + 0.095f * (float) i);
+            g.setColour(Colours::white.withAlpha(0.025f + 0.005f * (float) i));
+            g.drawEllipse(centre.x - gr, centre.y - gr, gr * 2, gr * 2, 0.7f);
         }
+        g.setColour(Colour(0xff241a13).brighter(0.2f).withAlpha(0.5f)); // pack edge catch-light
+        g.drawEllipse(centre.x - packR, centre.y - packR, packR * 2, packR * 2, 1.0f);
 
-        // sheen across the upper pack
-        {
-            Graphics::ScopedSaveState save(g);
-            Path clip; clip.addEllipse(centre.x - packR, centre.y - packR, packR * 2, packR * 2);
-            g.reduceClipRegion(clip);
-            ColourGradient sheen(Colours::white.withAlpha(0.06f), centre.x - packR * 0.6f, centre.y - packR,
-                                 Colours::transparentWhite, centre.x, centre.y, false);
-            g.setGradientFill(sheen);
-            g.fillRect(centre.x - packR, centre.y - packR, packR * 2, packR * 0.9f);
-        }
+        // ------- the flange: one path, outer disc minus three kidney windows
+        Path flange;
+        flange.setUsingNonZeroWinding(false);
+        flange.addEllipse(discBounds.reduced(R * 0.015f));
 
-        // three spoke windows, rotating, with lit edges
+        const float winOuter = R * 0.86f, winInner = R * 0.38f;
+        const float halfSpan = 0.92f; // ~53 deg each side: wide kidneys, narrow spokes
         for (int s = 0; s < 3; ++s)
         {
             const float a = angleRad + (float) s * MathConstants<float>::twoPi / 3.0f;
             Path window;
-            window.addCentredArc(centre.x, centre.y, radius * 0.52f, radius * 0.52f, a, -0.42f, 0.42f, true);
-            window.addCentredArc(centre.x, centre.y, radius * 0.24f, radius * 0.24f, a, 0.42f, -0.42f, false);
+            window.addCentredArc(centre.x, centre.y, winOuter, winOuter, a, -halfSpan, halfSpan, true);
+            window.addCentredArc(centre.x, centre.y, winInner, winInner, a, halfSpan, -halfSpan, false);
             window.closeSubPath();
-            g.setColour(panel.brighter(0.10f));
-            g.fillPath(window);
-            g.setColour(Colours::white.withAlpha(0.08f));
-            g.strokePath(window, PathStrokeType(1.0f));
+            flange.addPath(window);
         }
 
-        // hub: metal boss, accent ring, three bolts that turn with the reel
-        const float hubR = radius * 0.155f;
-        ColourGradient hub(Colour(0xff4b4b50), centre.x, centre.y - hubR,
-                           Colour(0xff1c1c1f), centre.x, centre.y + hubR, false);
-        g.setGradientFill(hub);
-        g.fillEllipse(centre.x - hubR, centre.y - hubR, hubR * 2, hubR * 2);
+        {
+            Graphics::ScopedSaveState save(g);
+            g.reduceClipRegion(flange);
 
-        g.setColour(accent.withAlpha(0.35f));
-        g.drawEllipse(centre.x - hubR - 2.5f, centre.y - hubR - 2.5f, (hubR + 2.5f) * 2, (hubR + 2.5f) * 2, 3.0f);
-        g.setColour(accent);
-        g.drawEllipse(centre.x - hubR, centre.y - hubR, hubR * 2, hubR * 2, 1.8f);
+            // brushed gunmetal, lighter where the light falls
+            ColourGradient metal(Colour(0xff45454c), centre.x, centre.y - R,
+                                 Colour(0xff17171a), centre.x, centre.y + R, false);
+            g.setGradientFill(metal);
+            g.fillEllipse(discBounds);
 
+            // circumferential machining lines
+            for (int i = 0; i < 7; ++i)
+            {
+                const float rr = R * (0.42f + 0.085f * (float) i);
+                g.setColour(Colours::black.withAlpha(0.16f));
+                g.drawEllipse(centre.x - rr, centre.y - rr, rr * 2, rr * 2, 0.6f);
+            }
+
+            // angled specular sweep
+            ColourGradient spec(Colours::white.withAlpha(0.085f), centre.x - R * 0.7f, centre.y - R,
+                                Colours::transparentWhite, centre.x + R * 0.2f, centre.y, false);
+            g.setGradientFill(spec);
+            g.fillRect(discBounds.withHeight(R * 1.1f));
+        }
+
+        // window bevels: dark cut edge + low catch-light
+        for (int s = 0; s < 3; ++s)
+        {
+            const float a = angleRad + (float) s * MathConstants<float>::twoPi / 3.0f;
+            Path window;
+            window.addCentredArc(centre.x, centre.y, winOuter, winOuter, a, -halfSpan, halfSpan, true);
+            window.addCentredArc(centre.x, centre.y, winInner, winInner, a, halfSpan, -halfSpan, false);
+            window.closeSubPath();
+            g.setColour(Colours::black.withAlpha(0.65f));
+            g.strokePath(window, PathStrokeType(1.4f));
+            g.setColour(Colours::white.withAlpha(0.07f));
+            g.strokePath(window, PathStrokeType(0.7f), AffineTransform::translation(0.0f, 1.0f));
+        }
+
+        // machined rim band
+        g.setColour(Colours::white.withAlpha(0.14f));
+        g.drawEllipse(discBounds.reduced(R * 0.015f), 1.6f);
+        g.setColour(Colours::black.withAlpha(0.65f));
+        g.drawEllipse(discBounds, 1.2f);
+        g.setColour(Colours::black.withAlpha(0.30f));
+        g.drawEllipse(discBounds.reduced(R * 0.055f), 1.0f);
+
+        // ------- NAB trilobe hub adapter, rotating with the reel
+        const float hubR = R * 0.30f;
+        {
+            Path trilobe;
+            trilobe.addEllipse(centre.x - hubR * 0.78f, centre.y - hubR * 0.78f, hubR * 1.56f, hubR * 1.56f);
+            for (int l = 0; l < 3; ++l)
+            {
+                const float a = angleRad + (float) l * MathConstants<float>::twoPi / 3.0f
+                              + MathConstants<float>::pi / 3.0f;
+                const auto lc = centre.getPointOnCircumference(hubR * 0.62f, a);
+                trilobe.addEllipse(lc.x - hubR * 0.42f, lc.y - hubR * 0.42f, hubR * 0.84f, hubR * 0.84f);
+            }
+
+            g.setColour(Colours::black.withAlpha(0.5f));
+            g.fillPath(trilobe, AffineTransform::translation(0.0f, 1.5f));
+
+            ColourGradient hubMetal(Colour(0xff5a5a61), centre.x, centre.y - hubR,
+                                    Colour(0xff222226), centre.x, centre.y + hubR, false);
+            g.setGradientFill(hubMetal);
+            g.fillPath(trilobe);
+            g.setColour(Colours::white.withAlpha(0.12f));
+            g.strokePath(trilobe, PathStrokeType(0.9f));
+        }
+
+        // hub face + the brand's slim light
+        ColourGradient hubFace(Colour(0xff37373c), centre.x, centre.y - hubR * 0.6f,
+                               Colour(0xff141416), centre.x, centre.y + hubR * 0.6f, false);
+        g.setGradientFill(hubFace);
+        g.fillEllipse(centre.x - hubR * 0.6f, centre.y - hubR * 0.6f, hubR * 1.2f, hubR * 1.2f);
+        g.setColour(accent.withAlpha(0.55f));
+        g.drawEllipse(centre.x - hubR * 0.6f, centre.y - hubR * 0.6f, hubR * 1.2f, hubR * 1.2f, 1.2f);
+
+        // spindle + drive screws
+        g.setColour(Colour(0xff0c0c0d));
+        g.fillEllipse(centre.x - hubR * 0.16f, centre.y - hubR * 0.16f, hubR * 0.32f, hubR * 0.32f);
         for (int b = 0; b < 3; ++b)
         {
-            const float a = angleRad + (float) b * MathConstants<float>::twoPi / 3.0f + 0.5f;
-            const auto p = centre.getPointOnCircumference(hubR * 0.55f, a);
-            g.setColour(Colour(0xff0d0d0e));
-            g.fillEllipse(p.x - 1.6f, p.y - 1.6f, 3.2f, 3.2f);
+            const float a = angleRad + (float) b * MathConstants<float>::twoPi / 3.0f;
+            const auto p = centre.getPointOnCircumference(hubR * 0.40f, a);
+            drawScrew(g, p, jmax(1.6f, hubR * 0.085f), a);
         }
     }
 
