@@ -176,8 +176,9 @@ reelsCanvas.addEventListener("dblclick", (e) => { e.stopPropagation(); setParam(
 function tick(t) {
   const dt = Math.min(60, t - lastT); lastT = t;
 
-  if (state.playing && !state.collapsed) {
-    // 50fps frame cadence, slowed while leaning on the tape
+  if (state.playing && !state.collapsed && !state.bypass) {
+    // 50fps frame cadence, slowed while leaning on the tape; bypass
+    // freezes the transport dead, like the plugin
     reelAcc += dt * 0.05 * (1 - 0.6 * state.flange);
     if (reelAcc >= 1) { reelFrame += Math.floor(reelAcc); reelAcc %= 1; drawReelFrame(); }
   }
@@ -189,6 +190,11 @@ function tick(t) {
   meter.dispR += (tgtR - meter.dispR) * 0.3;
   vuL.setValue(meter.dispL);
   vuR.setValue(meter.dispR);
+
+  // secondary metering: very light pulse on the cross and parameters while
+  // signal is being affected; bypass extinguishes it
+  const pulse = state.bypass ? 0 : Math.min(1, (meter.dispL + meter.dispR) * 0.75) * 0.55;
+  stage.style.setProperty("--pulse", pulse.toFixed(3));
 
   requestAnimationFrame(tick);
 }
@@ -321,7 +327,7 @@ async function renderAndDownload() {
   if (!currentBuffer || !bufferIsUpload) return;
   downloadBtn.disabled = true;
   const label = downloadBtn.textContent;
-  downloadBtn.textContent = "PRINTING TAPE…";
+  downloadBtn.textContent = "PRINTING TO TAPE…";
   try {
     const src = currentBuffer;
     const tail = Math.round(0.3 * src.sampleRate); // let print-through breathe out
