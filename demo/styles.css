@@ -218,3 +218,6 @@ body.extreme #k-shame::after {
   background: radial-gradient(circle, rgba(255,26,41,.50) 0%, rgba(255,26,41,0) 70%);
 }
 body.bypassed .stage { --pulse: 0 !important; }
+
+/* github mark inside the "View the Repo" button */
+.gh-ico { width: 13px; height: 13px; vertical-align: -2px; margin-right: 6px; }
