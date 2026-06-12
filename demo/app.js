@@ -43,15 +43,18 @@ function knob(id, asset, x, y, w, h, onSet) {
   state[param] = initial;
   s.setValue(initial);
 
-  let startY = 0, startV = 0;
+  let startX = 0, startY = 0, startV = 0;
   s.el.addEventListener("pointerdown", (e) => {
     s.el.setPointerCapture(e.pointerId);
-    startY = e.clientY; startV = state[param];
+    startX = e.clientX; startY = e.clientY; startV = state[param];
   });
   s.el.addEventListener("pointermove", (e) => {
     if (e.buttons !== 1) return;
+    // up OR right increases - any straight drag works, mirroring the
+    // plugin's RotaryHorizontalVerticalDrag
     const fine = e.shiftKey ? 0.25 : 1;
-    const v = Math.min(1, Math.max(0, startV + (startY - e.clientY) / 180 * fine));
+    const delta = (startY - e.clientY) + (e.clientX - startX);
+    const v = Math.min(1, Math.max(0, startV + delta / 180 * fine));
     setParam(param, v);
     s.setValue(v);
     if (onSet) onSet(v);
