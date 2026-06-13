@@ -4,7 +4,7 @@ The Kiss of Shame, debuted at the Audio Engineering Society Convention 2014 in L
 
 To differentiate itself in the competitive pro-audio plugin market, The Kiss of Shame introduced groundbreaking features including an interactive, multi-touch-ready GUI and analog tape degradation simulation for distinctive audio effects.
 
-The Kiss of Shame was never released. The source code was graciously donated to the open source community by its owner in 2024.
+The Kiss of Shame was never formally released. I open sourced the code and another developer who revived sunsetted / deprecioated plugins. 
 
 > **Rev 2 is in active development.** The plug-in now builds and passes audio
 > with JUCE 8 (CMake), with all parameters functional — including the storage
