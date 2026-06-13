@@ -60,6 +60,7 @@ jobs:
         with:
           tag_name: ${{ github.event.inputs.tag || github.ref_name }}
           name: The Kiss of Shame ${{ github.event.inputs.tag || github.ref_name }}
+          target_commitish: ${{ github.sha }}
           prerelease: true
           files: TheKissOfShame-macOS.zip
           body: |
@@ -112,6 +113,7 @@ jobs:
         with:
           tag_name: ${{ github.event.inputs.tag || github.ref_name }}
           name: The Kiss of Shame ${{ github.event.inputs.tag || github.ref_name }}
+          target_commitish: ${{ github.sha }}
           prerelease: true
           files: TheKissOfShame-Windows-VST3.zip
 
@@ -142,5 +144,6 @@ jobs:
         with:
           tag_name: ${{ github.event.inputs.tag || github.ref_name }}
           name: The Kiss of Shame ${{ github.event.inputs.tag || github.ref_name }}
+          target_commitish: ${{ github.sha }}
           prerelease: true
           files: TheKissOfShame-Linux-VST3.zip
